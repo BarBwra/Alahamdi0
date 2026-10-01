@@ -1,0 +1,507 @@
+# MlumInventory — handoff
+
+Everything needed to work on this mod without having seen it before. **Read it all before changing
+anything**; several sections describe traps that have already cost real debugging time, and a few
+describe bugs that were shipped and then found the hard way.
+
+Last updated at **mlum 3.8.0**, network protocol **10**.
+
+---
+
+## 1. What this is
+
+`MlumInventory` (mod id `mlum`) is a **Forge 1.20.1** mod for one private Arabic-language
+zombie-apocalypse survival server. It is not general purpose — it is that server's systems bundled
+together:
+
+- A **custom full-screen inventory** that replaces the vanilla one entirely
+- A **grid bag** with per-item footprints, plus backpack rows
+- A **wallet**, a **skills** tree, a **quest board**, a **vehicle garage**, a **warehouse/market**,
+  **safe zones**, a **faction system** (المنظمة), **ranks**, and an in-game **firearm HUD**
+
+| | |
+|---|---|
+| Minecraft | 1.20.1 |
+| Forge | 47.4.10 (the user's client runs 47.4.23) |
+| Mappings | official (mojmap) |
+| Java | 17 target, built with JDK 21 |
+| Working dir | `C:\Users\BarBwra\Desktop\!mods\mlum-inventory 3.3.0` (folder name is stale, the mod is 3.8.0) |
+| Installed to | `C:\Users\BarBwra\curseforge\minecraft\Instances\Mlife\mods\` |
+
+**There is no git in this project.** Nothing is recoverable once overwritten. Do not bulk-rewrite
+files without an explicit instruction, and make a copy first when you do.
+
+### Sibling projects in `!mods`
+
+| Folder | Mod id | Notes |
+|---|---|---|
+| `mlum-inventory 3.3.0` | `mlum` | this mod |
+| `mlum-base 1.0.0` | `mlum_base` | per-player base building. **A crash was fixed here — see §9.** |
+| `mlum-shop 1.0.0` | `mshop` | shop; `mlum` reads sell prices from it via `ShopCompat` |
+| `mlum-map 1.0.0` | `mmap` | map |
+| `mlife-warehouse 1.0.0` | — | older warehouse; the live one is bundled inside `mlum` |
+| `mlumarmor` | `mlumarmor` | **built in a session I was not part of — undocumented here** |
+| `Armor Model` | — | model work, same caveat |
+| (installed only) | `mlum_scarab` | **no source folder found in `!mods` — undocumented here** |
+
+### Build and install
+
+```bash
+cd "C:\Users\BarBwra\Desktop\!mods\mlum-inventory 3.3.0"
+./gradlew build --offline
+```
+
+Produces `build/libs/mlum-<version>.jar`. Then delete `mlum-*.jar` from the instance's `mods` folder
+and copy the new one in. `build-and-install.bat` does both but points at a `claude` instance by
+default — the real one is `Mlife`.
+
+**A compile error means no jar is produced and the old one stays installed.** Always check the jar's
+timestamp and size after building, never just the "BUILD SUCCESSFUL" line. This has caused "I
+installed your fix and nothing changed" more than once.
+
+Verify no foreign classes leaked in after touching dependencies — must print `0`:
+
+```bash
+unzip -l build/libs/mlum-3.8.0.jar | grep -cE "com/tacz|atsuishio"
+```
+
+### The version / protocol rule
+
+`ModNetwork.PROTOCOL` is a string Forge refuses connections over when it differs. **Bump it whenever
+any packet changes shape, and bump `mod_version` in `gradle.properties` with it.** A stale client
+otherwise decodes one packet as another and draws confident nonsense. The history is in the javadoc
+on that field; it is at **10** now.
+
+---
+
+## 2. Optional-dependency mods
+
+All are the user's pack, none are bundled.
+
+| Mod | Used for | How referenced |
+|---|---|---|
+| **TACZ** 1.1.8-hotfix | guns, attachments, ammo | `compileOnly` jar in `libs/`; `compat/TaczAttachments`, `compat/TaczCompat`, and **one mixin** |
+| **Superb Warfare** 0.8.9.1 | vehicles | **no dependency at all** — class-name walk + reflection in `compat/SbwCompat` |
+| `survivorsarsenal` | backpack items | config item-id list |
+| `survival_instinct` | `survival_instinct:money`, the banknote item | item id string |
+| `curios` | installed, **not yet integrated** — see §12 |
+
+SBW is Kotlin and ships its own runtime; putting it on the compile path would tie this build to its
+version. Everything it needs is a superclass-name check plus four reflected methods.
+
+---
+
+## 3. The bag — the heart of the mod
+
+### 3.1 Two sections, two different owners
+
+| Section | Rows | Where the items actually live |
+|---|---|---|
+| `BASE` | 3 | **vanilla inventory slots 9..35.** The bag stores only *positions* |
+| `PACK` | 0..5 | **NBT inside the worn backpack `ItemStack`** |
+
+This asymmetry is the single most important thing about the bag. A base cell *is* a vanilla slot, so
+`BagEntry.stack()` for a base entry is the **live object Minecraft holds** — `split()` and `grow()`
+on it edit the real inventory. A pack entry is a deserialised copy that must be written back with
+`BackpackAccess.writeGrid`.
+
+Storing base stacks in the bag instead would create 27 slots invisible to hoppers, death handlers and
+every other mod — a duplication bug waiting to happen. Storing pack rows on the player would mean the
+backpack's contents no longer travel with the backpack.
+
+`BagService.takeFrom` / `putAt` are the **only** two methods that know which is which. Everything
+above them moves items without caring.
+
+### 3.2 The bug that broke everything: `BagEntry.source`
+
+`source` is the inventory slot a base entry *is* (or `OWNED_BY_PACK = -1`). It was **not written to
+the packet**, so every entry arrived on the client claiming to be pack-owned. Consequences, all of
+which read as separate bugs:
+
+- the drop position was never applied — items landed in the first free cell
+- `hoveredSlot` stayed null, so **Q dropped nothing**
+- shift-click and right-click on base items fell through silently
+- the pending-placement handshake never matched
+
+One missing varint. If something in the bag behaves as though the client cannot tell the two sections
+apart, check `BagEntry.write/read` first.
+
+### 3.3 Moves: one rule for every landing
+
+`BagService.move(player, from, fromA, fromB, to, toA, toB, amount)` reads what is under the
+destination footprint and decides:
+
+| Under the footprint | What happens |
+|---|---|
+| nothing | placement (reposition if same section and whole stack, otherwise take + put) |
+| **one** stack of the same item | **merge** |
+| **one** stack of something else | **swap** (whole stacks only) |
+| two or more | refused |
+
+Before this, anything not completely empty simply failed — which is why two stacks of the same wood
+could never be joined however they were dragged.
+
+`amount` is a **ceiling, not an instruction**: the server clamps it to what is really there. `0` means
+all. That one parameter is what makes right-click-place-one and split-half work.
+
+### 3.4 Vanilla-feel gestures (client, `BagScreen`)
+
+| Gesture | Behaviour |
+|---|---|
+| left-click item | pick up the whole stack (`heldAll = true`) |
+| right-click item | pick up half (`heldAll = false`, `heldCount` fixed) |
+| left-click cell while holding | put it all down |
+| right-click cell while holding | put **one** down |
+| right-click + drag | paint one into each cell crossed (`painted` set stops doubles) |
+| double-click source cell | **gather** every other stack of that item in the same section |
+| shift-click | quick move |
+| `Q` / `Ctrl+Q` | drop one / drop the stack, on the ground |
+| click the dark outside | drop what is held / carried |
+| `Esc` | let go |
+
+**`heldAll` is a flag, not a number**, on purpose: "all of it" has to keep meaning all of it while the
+stack is changing under the cursor — placing one shrinks it, a double-click grows it. A count frozen
+at pick-up would go stale on the first of either.
+
+Gather is **within one section only**. The pack's rows travel with the backpack; a tidy-up gesture
+should not quietly change what a player keeps when they take it off.
+
+### 3.5 Two kinds of "holding"
+
+- **grid-held** (`held` in `BagScreen`): the item stays in its cell on the server and is drawn under
+  the cursor. This is what lets a 7×2 rifle show its real footprint.
+- **vanilla cursor** (`menu.getCarried()`): anything picked up from a real slot — quick access, gear,
+  a chest cell.
+
+Dropping a cursor stack onto the grid goes through `placeCarried` → a free vanilla slot →
+`pendingSource` → `applyPendingPlacement` sends the real move once the entry appears. Two round trips,
+but it is the only way to get a cursor stack into an exact cell.
+
+### 3.6 Hover feedback
+
+`Slots.OPEN` (state 5) is the amber square on an **empty** cell under the cursor. Applied to the bag
+grid, quick access, all six gear sockets and the empty firearm cards. `Slots.slot` originally only
+reacted to hover when the cell held something.
+
+---
+
+## 4. The wallet — an account, not an item
+
+**This changed and it is a behaviour break.** The wallet used to be a *count of
+`survival_instinct:money` items* carried in the bag.
+
+Now:
+
+- `WalletStore` — one `long` in the player's persisted NBT
+- the banknote is an ordinary item that takes a cell like any other
+- `WalletService.give` **always succeeds** — no "no room", nothing dropped on the floor
+- `EconomyService.pay` can no longer half-fail, and `take` no longer rummages through the inventory
+
+```
+/mlum_inventory money set|add|remove|get <players> <amount>
+/mlum_inventory money deposit  <players> <amount>   # notes  -> balance
+/mlum_inventory money withdraw <players> <amount>   # balance -> notes
+```
+
+`deposit`/`withdraw` are the deliberate bridge between the two. They are **not** automatic — money
+turning itself into an account balance on pickup would be the two things joined again.
+
+**Migration note:** existing players' balances started at 0 when this shipped. Their banknotes were
+left untouched. `deposit` is how they are converted.
+
+Synced by `S2CWallet` on login, respawn, dimension change and every change. The client has no other
+way to know it — `UiState.tickWallet` reads `ClientWallet`, not an item count.
+
+---
+
+## 5. Skills — they used to do nothing at all
+
+### 5.1 What was wrong
+
+The tab sold perks and then ran a console command, `mlum_skill %player% %skill% %level%`, leaving the
+effect to a server script. **That command was never written**, and the call site used
+`withSuppressedOutput()` — so buying a skill took the money, marked the card complete, and changed
+nothing, silently. The default `buyCommand` is now blank and the effects are in code.
+
+### 5.2 The current ladder
+
+Config line format (the 11th field is optional):
+
+```
+id|name|description|icon|level1|level2|level3|price1|price2|price3[|soon]
+```
+
+| id | name | what it does | where |
+|---|---|---|---|
+| `attachments` | تعشيق أكثر | guns accept attachment types their data pack forbids | mixin, §5.4 |
+| `scout` | الباحث | containers outlined through walls, 8/12/16 blocks | `ScoutOverlay` |
+| `butcher` | الجزار | zombies drop more meat | `LivingDropsEvent` |
+| `blade_master` | السلاح اليدوي | melee kills drop more of **everything** | `LivingDropsEvent` |
+| `medic` | المسعف | everything that heals you heals more | `LivingHealEvent` |
+| `soon_1..3` | قادم قريباً | drawn, not buyable | — |
+
+The id `blade_master` was **kept** when the skill was renamed, so anyone who had bought it keeps it.
+
+`maxedSkills` (default 3) caps how many may reach level 3. **Dropping a skill costs
+`refundCost` (2000) and returns nothing** — it buys the right to change your mind and frees a maxed
+slot. A refund would make the cap meaningless.
+
+### 5.3 Fractions are rolled, not floored
+
+A 15% bonus on a single-item drop is 0.15 of an item. Flooring it would make every one-item drop in
+the game — which is most of them — ignore the skill entirely. `SkillEffects.scale` rolls the
+remainder, so it pays out about right over a session rather than exactly right per kill.
+
+### 5.4 The TACZ mixin — why it was unavoidable
+
+A gun's mounting points live in its **data pack entry**, not on the item. TACZ gates in two places:
+
+```
+installAttachment: if (!allowAttachment(gun, part)) return;          // refuses to fit it
+getAttachment:     if (!allowAttachmentType(gun, type)) return EMPTY; // refuses to read it back
+```
+
+So writing the attachment into the gun's NBT directly does **not** work — TACZ hands back an empty
+stack and the part applies no stats. Relaxing the check is the only route.
+
+`mixin/TaczAttachmentMixin` injects at `RETURN` on both methods and only ever flips `false → true`,
+and only for a gun carrying `GunUpgrade.TAG` (`MlumAttach`, an int level). `SkillGuns` stamps that tag
+onto every gun in the player's inventory once a second and strips it when the skill is dropped —
+**a sweep, not a hook on purchase**, because guns arrive from chests, kills, trades and commands.
+
+`MlumMixinPlugin` switches the whole config off when TACZ is absent (`LoadingModList`, because mods
+are not constructed yet at that point). Declared via `MixinConfigs` in the jar manifest, set in
+`build.gradle`.
+
+**What it cannot fix:** whether the gun's *model* has somewhere to hang the part. A rifle with no rail
+will mount a scope that works and is invisible.
+
+### 5.5 The medic window
+
+Scoped to 200 ticks after the player finishes or right-clicks an item, rather than to a list of item
+ids — the server runs several mods that heal, each its own way, and a list would be wrong the day a
+new one is added. Both `LivingEntityUseItemEvent.Finish` **and**
+`PlayerInteractEvent.RightClickItem` open the window: `Finish` only fires for items with a use
+duration, and most medical items on this server heal on the click itself.
+
+---
+
+## 6. Ranks and the store
+
+- `rank/Rank` — id, name, colour, **price as free text**, blurb, perks
+- `rank/RankService` — config ladder (lowest first), per-player rank in persisted NBT
+- `S2CRanks` → `ClientRanks` — ladder + money packs + which rank this player holds, **in one packet**
+  (the bar draws the held rank *from* the ladder; a frame where they disagree draws a rank with no
+  entry behind it)
+- `client/ui/view/StoreView` — the dialog
+- the top bar's pill (`Chrome.rankPill`) **replaced the safe-zone pill**
+
+**Nothing here charges anyone.** Ranks are sold outside the game; the price is a string so a server
+can write `50 ريال` or leave it blank. The store is a catalogue, and ranks change hands only through:
+
+```
+/mlum_inventory rank set <players> <rank>
+/mlum_inventory rank get <player>
+```
+
+The rank badge is **generated** (initials in the rank's colour, framed, with a radial bloom) rather
+than a texture, so a rank exists the moment it is written in the config instead of waiting on
+artwork.
+
+Store state lives in `UiState` (`storeOpen` / `storeTab` / `storeDetail`), not on a screen, because
+the top bar is drawn on all six tabs and switching tabs must not close it. Both `BagScreen` and
+`TabsScreen` call `UiState.storeClick(hit)` before their own routing and `UiState.storeModal(hover)`
+from `modal()`.
+
+Config section `[ranks]`: `id|name|colour|price|blurb|perk;perk;perk`.
+
+---
+
+## 7. Vehicles
+
+### 7.1 The lock (`VehicleLock`, `VehicleAccess`)
+
+Three modes, stored in the **entity's** Forge persistent data so they survive relog and chunk unload
+with no side table:
+
+| Mode | Who rides |
+|---|---|
+| `LOCKED` (default on summon) | the owner |
+| `FACTION` | the owner + their organisation |
+| `OPEN` | anybody |
+
+`L` cycles it, **owner only** — a faction-mode vehicle lets members ride, not decide who else can.
+Refusal plays `CHEST_LOCKED` and is throttled to once per 40 ticks so a held use-key is not a machine
+gun. Changing the mode ejects anyone no longer allowed.
+
+**Three enforcement gates, and all three are needed:**
+
+1. `PlayerInteractEvent.EntityInteract` — fires **before** the entity's own `interact`
+2. `EntityMountEvent` — ordinary mounting
+3. a per-tick sweep every 10 ticks — **this is the one that actually holds**, because a vehicle mod
+   moving a player between its own seats does it over its own network channel and fires no Forge
+   event at all
+
+#### The bug I shipped here, and the lesson
+
+SBW has its own `Locked` boolean. I mirrored our mode onto it so its padlock icon would not
+contradict us. That **broke the feature outright**: its interact handler is
+
+```java
+if (getLocked()) { tell("vehicle.locked"); return FAIL; }   // no owner check whatsoever
+```
+
+so a freshly summoned (locked) vehicle shut its own owner out before any of this mod's code ran. A
+boolean cannot express "mine may ride, strangers may not" — which is the entire reason `VehicleLock`
+exists. **SBW's flag is now forced off, always**, and `VehicleLock.clearForeignLock` is called on the
+way into every interaction so vehicles already stuck from that build repair themselves on first use.
+
+### 7.2 Energy
+
+`SbwCompat.refuel` reaches `getEnergy` / `setEnergy` / `getMaxEnergy` / `hasEnergyStorage` by
+reflection — all public on `VehicleEntity`, so no NBT guessing and no compile dependency. Full on
+summon, topped up every 10 ticks while anyone is riding. `infiniteVehicleEnergy` config, default on.
+A vehicle with no storage answers `hasEnergyStorage = false` and is skipped rather than special-cased.
+
+### 7.3 Destruction
+
+`activeId(player) != null` meant "did we write down a UUID", not "does the vehicle exist". So a plane
+that blew up left the record forever: the garage said a vehicle was out, Store had nothing to store,
+and **no further vehicle could ever be summoned**. `VehicleDestruction` hooks
+`EntityLeaveLevelEvent` and acts **only** on `RemovalReason.KILLED` / `DISCARDED` — the other reasons
+mean the entity is alive and merely unloaded, and acting on those would orphan a parked vehicle.
+
+Spawn search starts **3 blocks** out (was 2) and walks to 9.
+
+Remove vehicles from a player's list with `/mlum vehicle take` or `/mlum vehicle clearall`.
+
+### 7.4 3D models in the garage
+
+`client/ui/mc/EntityPreview` builds one entity per type, keeps it, never adds it to the world, and
+renders it with `EntityRenderDispatcher`. **`InventoryScreen.renderEntityInInventory` cannot be
+used** — it takes a `LivingEntity`, and an SBW vehicle is a plain `Entity`. A type that throws is
+remembered as broken and falls back to the flat picture.
+
+Reached through `Canvas.entity(...)` → `McCanvas.entity`, which flushes and clips like `player()`
+does, because the entity renderer writes through its own buffer source and depth.
+
+---
+
+## 8. The menu guard (حماية المأفكي)
+
+While one of this mod's menus is open, hostile mobs may not **pick** that player — unless something
+is already within `menuGuardRadius` (10) when it tries. You cannot open the bag to escape a fight,
+because the thing you are escaping is what switches the guard off.
+
+The bag is a real container the server can see on `containerMenu`. The other five tabs are plain
+screens that never touch the server, so the client says so with `C2SMenuOpen` about twice a second and
+the claim **goes stale on its own** after 100 ticks — a crash or a lost connection cannot leave anyone
+permanently unattackable.
+
+`LivingChangeTargetEvent` only fires when a target *changes*, so a mob that locked on before the menu
+opened would come forever. A second sweep clears held targets.
+
+**A modified client can lie about this.** The exploit is small by construction; `menuGuard` in the
+config turns it off.
+
+---
+
+## 9. The `mlum_base` crash — fixed, and worth remembering
+
+Every death crashed the server, exactly one second later:
+
+```
+[18:54:07] BarBwra was slain by Zombie
+[18:54:08] ERROR: Player BarBwra has no mlum_base capability attached
+```
+
+Twenty ticks after a player dies, Minecraft calls `Entity#remove` and Forge invalidates every
+capability on them — **but the player stays in `PlayerList` until they click respawn**. So for the
+length of the death screen there is a live entry in the player list with no capability behind it.
+`ModCapabilities.of()` threw `IllegalStateException`, and it was called from the once-a-second server
+tick. An exception out of the tick loop is a server crash.
+
+Fix: `ModCapabilities.find()` returns null; `of()` falls back to a detached instance and logs; every
+loop that walks the player list skips removed players. **Anything iterating `getPlayerList()` must
+assume a player there may have no capabilities.**
+
+---
+
+## 10. Arabic text — the biggest trap in this codebase
+
+The lang files (`assets/mlum/lang/*.json`) are **pre-baked into Unicode Presentation Forms-B and
+pre-reversed**. They are *not* logical-order Arabic.
+
+- `Language.getVisualOrder` / `Component#getVisualOrderText` on them **double-reverses** → garbage
+- `util/ArabicText.autoDisplay(String)` shapes only if `isLogical()` says it needs it
+- **Arabic written literally in Java source is logical order** and must go through `autoDisplay()`
+  before being drawn by vanilla or sent to chat
+- The mod's own UI (`TextEngine`, `Css.txt`) handles logical Arabic itself — literals in view code are
+  fine as-is
+- `Css.px()` uses the **pixel font, which has no Arabic glyphs**. Key caps and badges must be Latin
+- Key-binding names in the vanilla Controls screen are English for this reason
+
+To add a lang entry, do not hand-type the shaped form: compile `ArabicText` standalone (it has zero
+imports) and run it on the logical string.
+
+---
+
+## 11. Config
+
+**One config id, two files**, both named `mlum`:
+
+| Type | Path | Synced |
+|---|---|---|
+| SERVER | `saves/<world>/serverconfig/mlum-server.toml` (dedicated: `world/serverconfig/`) | yes |
+| CLIENT | `config/mlum-client.toml` | never |
+
+Plus `config/mlum_inventory.toml` — the bag's own NightConfig file (backpacks, item sizes, gun sizes,
+rarity), reloadable with `/mlum_inventory reload`.
+
+### ⚠ The trap that will waste your time
+
+**Forge keeps existing values for existing worlds. A changed default only affects fresh worlds.**
+
+So after changing `skills`, `ranks`, or any list default, the user's live server **will not see it**
+until they delete that section from `world/serverconfig/mlum-server.toml`. Say so every time. The
+local test world `New World (4)` was edited by hand for this reason (backup at
+`mlum-server.toml.bak-before-3.7.0`).
+
+Sections added recently: `[menu_guard]`, `[ranks]`, `infiniteVehicleEnergy`, `skills.refundCost`,
+client `lockHudX` / `lockHudY`.
+
+---
+
+## 12. Open items
+
+| # | Item | State |
+|---|---|---|
+| 1 | **Vehicle lock HUD does not appear** | **open bug.** The lock itself works; the text does not draw. Position is configurable (`lockHudX` / `lockHudY`) but the user reports it invisible, so suspect the overlay registration or an early return in `VehicleLockHud.render`, not the coordinates |
+| 2 | **Backpack visible on the player's back** | not started. The user has Curios installed and `survivorsarsenal` renders from a Curios slot. Mirroring our slot into Curios would render for free **but risks duplication** — the item would exist in our persisted NBT *and* a real Curios slot. The alternative is our own `RenderLayer` on the player renderer, which has no duplication risk but needs the backpack item to have a usable 3D model. **Decide this before writing code** |
+| 3 | Rank store polish | the user said to build it well and that they would say what they disliked. No feedback yet |
+| 4 | Faction vault UI | model complete (`FactionVault`), nothing reaches it |
+| 5 | Faction donations / page purchase | not built |
+| 6 | VIP double-XP marker on `LevelHud` | not built — must be subtle, explicitly *not* a banner |
+| 7 | Global double-XP announcement | not built — explicitly *not* a boss bar |
+
+**Nothing from 3.5.0 onward has been tested in game by me.** It compiles, the jar is verified clean,
+and the mixin applies without error in the log — that is all. Several things shipped broken and were
+found by the user; assume the same of anything not explicitly confirmed working.
+
+Confirmed working by the user: the money commands (seen in logs), the mixin applying (no errors).
+Confirmed broken and since fixed: the scout skill, the vehicle lock, the `mlum_base` death crash.
+
+---
+
+## 13. Working with this user
+
+- They run a live server. Changes ship to real players.
+- They dislike partial delivery reported as complete. **Say plainly what is not done.**
+- They will give long multi-item lists. Delivering a few things properly beats delivering all of them
+  half-built — they have accepted that trade when it was explained.
+- They will reaffirm a decision after pushback. When they do, that is the decision. Proceed.
+- They report bugs precisely and will send screenshots and F3 entity dumps. **Read them** — the SBW
+  energy API was found from one.
+- Verify API signatures against the actual jar rather than from memory. Several bugs here came from
+  assuming a method's behaviour. `javap -p -c` on a mod's jar settles arguments in seconds, and did —
+  twice, for TACZ and for SBW.
