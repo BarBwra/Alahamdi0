@@ -1,0 +1,9 @@
+Manifest-Version: 1.0
+Specification-Title: mlum
+Specification-Vendor: BarBwra
+Specification-Version: 1
+Implementation-Title: tactical-inventory
+Implementation-Version: 3.10.0
+Implementation-Vendor: BarBwra
+MixinConfigs: mlum.mixins.json
+

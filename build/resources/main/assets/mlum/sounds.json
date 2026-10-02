@@ -1,0 +1,33 @@
+{
+  "ui.static": {
+    "sounds": [
+      {"name": "mlum:ui/static_1", "preload": true},
+      {"name": "mlum:ui/static_2", "preload": true},
+      {"name": "mlum:ui/static_3", "preload": true}
+    ]
+  },
+  "ui.static_soft": {
+    "sounds": [
+      {"name": "mlum:ui/static_soft_1", "preload": true},
+      {"name": "mlum:ui/static_soft_2", "preload": true},
+      {"name": "mlum:ui/static_soft_3", "preload": true}
+    ]
+  },
+  "ui.coin": {
+    "sounds": [
+      {"name": "mlum:ui/coin", "preload": true}
+    ]
+  },
+  "ui.tick_up": {
+    "sounds": [
+      {"name": "mlum:ui/tick_up_1", "preload": true},
+      {"name": "mlum:ui/tick_up_2", "preload": true}
+    ]
+  },
+  "ui.tick_down": {
+    "sounds": [
+      {"name": "mlum:ui/tick_down_1", "preload": true},
+      {"name": "mlum:ui/tick_down_2", "preload": true}
+    ]
+  }
+}

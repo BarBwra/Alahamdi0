@@ -1,0 +1,43 @@
+{
+  "_readme": [
+    "Delivery routes. Copied to config/mwh/routes.json on first boot; edit that copy.",
+    "Reload without restarting: /warehouse admin reload",
+    "",
+    "spawn      - where the runner is teleported when the convoy is authorised.",
+    "drop       - where the cargo has to reach. Delivery radius is in the server config.",
+    "riskTier   - 1..3, drawn as filled pips in the dispatch screen.",
+    "multiplier - payout multiplier for choosing this route.",
+    "",
+    "The three below are the prototype's hardcoded pairs, preserved exactly. Add a fourth by",
+    "appending an object here - nothing in the code assumes there are only three."
+  ],
+  "routes": [
+    {
+      "id": "harbor",
+      "display": "طريق الميناء",
+      "dimension": "minecraft:overworld",
+      "spawn": { "x": -1059.0, "y": 4.0, "z": 1136.0, "yaw": 140.0 },
+      "drop":  { "x": -1658.0, "y": 4.0, "z": 396.0 },
+      "riskTier": 1,
+      "multiplier": 1.0
+    },
+    {
+      "id": "quarry",
+      "display": "ممر المحجر",
+      "dimension": "minecraft:overworld",
+      "spawn": { "x": 831.0, "y": 4.0, "z": -1384.0, "yaw": 0.0 },
+      "drop":  { "x": 1422.0, "y": 4.0, "z": -568.0 },
+      "riskTier": 2,
+      "multiplier": 1.2
+    },
+    {
+      "id": "highway",
+      "display": "الطريق السريع",
+      "dimension": "minecraft:overworld",
+      "spawn": { "x": -2054.5, "y": 4.0, "z": 1172.5, "yaw": -126.0 },
+      "drop":  { "x": -691.0, "y": 4.0, "z": 156.0 },
+      "riskTier": 3,
+      "multiplier": 1.45
+    }
+  ]
+}

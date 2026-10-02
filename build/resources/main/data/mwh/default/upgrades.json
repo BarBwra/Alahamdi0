@@ -1,0 +1,185 @@
+{
+  "_readme": [
+    "The upgrade tree. Copied to config/mwh/upgrades.json on first boot; edit that copy.",
+    "Reload without restarting: /warehouse admin reload",
+    "",
+    "path         - speed | logistics | armor | crafting",
+    "level        - 1..5. A level can only be bought when the one below it is owned.",
+    "cost         - price in the configured currency item.",
+    "requirements - deliveries that must already be recorded. cargo is food|med|weapon,",
+    "               tiers is a list so [1] means tier I only and [1,2,3] means any tier.",
+    "",
+    "These gates are checked ON THE SERVER at purchase time. The terminal draws a node as",
+    "available only as a hint - a client that lies about it still gets refused.",
+    "",
+    "Transcribed unchanged from the Skript prototype."
+  ],
+  "upgrades": [
+    {
+      "path": "speed", "level": 1, "cost": 500,
+      "description": ["هذا التطوير يتيح لك التوصيل أسرع", "عن طريق زيادة سرعة المشي أثناء المهمة فقط"],
+      "requirements": [ { "cargo": "med", "tiers": [1], "count": 25 } ]
+    },
+    {
+      "path": "speed", "level": 2, "cost": 1500,
+      "description": ["هذا التطوير يتيح لك التوصيل أسرع", "عن طريق زيادة سرعة المشي أثناء المهمة فقط"],
+      "requirements": [
+        { "cargo": "med", "tiers": [1], "count": 50 },
+        { "cargo": "food", "tiers": [2], "count": 15 }
+      ]
+    },
+    {
+      "path": "speed", "level": 3, "cost": 3000,
+      "description": ["هذا التطوير يتيح لك التوصيل أسرع", "عن طريق زيادة سرعة المشي أثناء المهمة فقط"],
+      "requirements": [
+        { "cargo": "med", "tiers": [1], "count": 75 },
+        { "cargo": "food", "tiers": [2], "count": 35 },
+        { "cargo": "weapon", "tiers": [2], "count": 5 }
+      ]
+    },
+    {
+      "path": "speed", "level": 4, "cost": 5000,
+      "description": ["هذا التطوير يتيح لك التوصيل أسرع", "عن طريق زيادة سرعة المشي أثناء المهمة فقط"],
+      "requirements": [
+        { "cargo": "med", "tiers": [2], "count": 75 },
+        { "cargo": "food", "tiers": [3], "count": 25 }
+      ]
+    },
+    {
+      "path": "speed", "level": 5, "cost": 8000,
+      "description": ["هذا التطوير يتيح لك التوصيل أسرع", "عن طريق زيادة سرعة المشي أثناء المهمة فقط"],
+      "requirements": [
+        { "cargo": "med", "tiers": [1,2,3], "count": 225 },
+        { "cargo": "food", "tiers": [1,2,3], "count": 100 },
+        { "cargo": "weapon", "tiers": [1,2,3], "count": 50 }
+      ]
+    },
+
+    {
+      "path": "logistics", "level": 1, "cost": 500,
+      "description": ["هذا التطوير يمنحك مساحة أكبر لتخزين البضائع", "ويزيد من أيام صلاحية الشحنات قبل أن تفسد"],
+      "requirements": [ { "cargo": "food", "tiers": [1], "count": 25 } ]
+    },
+    {
+      "path": "logistics", "level": 2, "cost": 1500,
+      "description": ["هذا التطوير يمنحك مساحة أكبر لتخزين البضائع", "ويزيد من أيام صلاحية الشحنات قبل أن تفسد"],
+      "requirements": [
+        { "cargo": "food", "tiers": [1], "count": 50 },
+        { "cargo": "med", "tiers": [1], "count": 15 }
+      ]
+    },
+    {
+      "path": "logistics", "level": 3, "cost": 3000,
+      "description": ["هذا التطوير يمنحك مساحة أكبر لتخزين البضائع", "ويزيد من أيام صلاحية الشحنات قبل أن تفسد"],
+      "requirements": [
+        { "cargo": "food", "tiers": [1], "count": 75 },
+        { "cargo": "med", "tiers": [2], "count": 35 },
+        { "cargo": "weapon", "tiers": [1], "count": 5 }
+      ]
+    },
+    {
+      "path": "logistics", "level": 4, "cost": 5000,
+      "description": ["هذا التطوير يمنحك مساحة أكبر لتخزين البضائع", "ويزيد من أيام صلاحية الشحنات قبل أن تفسد"],
+      "requirements": [
+        { "cargo": "food", "tiers": [2], "count": 75 },
+        { "cargo": "med", "tiers": [3], "count": 25 }
+      ]
+    },
+    {
+      "path": "logistics", "level": 5, "cost": 8000,
+      "description": ["هذا التطوير يمنحك مساحة أكبر لتخزين البضائع", "ويزيد من أيام صلاحية الشحنات قبل أن تفسد"],
+      "requirements": [
+        { "cargo": "food", "tiers": [1,2,3], "count": 225 },
+        { "cargo": "med", "tiers": [1,2,3], "count": 100 },
+        { "cargo": "weapon", "tiers": [1,2,3], "count": 50 }
+      ]
+    },
+
+    {
+      "path": "armor", "level": 1, "cost": 500,
+      "description": ["هذا التطوير يوفر لك حماية إضافية أثناء التوصيل", "لمساعدتك في البقاء على قيد الحياة ضد الكمائن"],
+      "requirements": [ { "cargo": "weapon", "tiers": [1], "count": 15 } ]
+    },
+    {
+      "path": "armor", "level": 2, "cost": 1500,
+      "description": ["هذا التطوير يوفر لك حماية إضافية أثناء التوصيل", "لمساعدتك في البقاء على قيد الحياة ضد الكمائن"],
+      "requirements": [
+        { "cargo": "weapon", "tiers": [1], "count": 25 },
+        { "cargo": "food", "tiers": [2], "count": 15 }
+      ]
+    },
+    {
+      "path": "armor", "level": 3, "cost": 3000,
+      "description": ["هذا التطوير يوفر لك حماية إضافية أثناء التوصيل", "لمساعدتك في البقاء على قيد الحياة ضد الكمائن"],
+      "requirements": [
+        { "cargo": "weapon", "tiers": [1], "count": 50 },
+        { "cargo": "food", "tiers": [2], "count": 25 },
+        { "cargo": "med", "tiers": [2], "count": 15 }
+      ]
+    },
+    {
+      "path": "armor", "level": 4, "cost": 5000,
+      "description": ["هذا التطوير يوفر لك حماية إضافية أثناء التوصيل", "لمساعدتك في البقاء على قيد الحياة ضد الكمائن"],
+      "requirements": [
+        { "cargo": "weapon", "tiers": [2], "count": 50 },
+        { "cargo": "food", "tiers": [3], "count": 25 },
+        { "cargo": "med", "tiers": [3], "count": 10 }
+      ]
+    },
+    {
+      "path": "armor", "level": 5, "cost": 8000,
+      "description": ["هذا التطوير يوفر لك حماية إضافية أثناء التوصيل", "لمساعدتك في البقاء على قيد الحياة ضد الكمائن"],
+      "requirements": [
+        { "cargo": "weapon", "tiers": [1,2,3], "count": 150 },
+        { "cargo": "food", "tiers": [1,2,3], "count": 75 },
+        { "cargo": "med", "tiers": [1,2,3], "count": 75 }
+      ]
+    },
+
+    {
+      "path": "crafting", "level": 1, "cost": 500,
+      "description": ["هذا التطوير يزيد من الحد الأقصى للمشاريع", "مما يسمح لك بصناعة المزيد من الصناديق في نفس الوقت"],
+      "requirements": [
+        { "cargo": "food", "tiers": [1], "count": 15 },
+        { "cargo": "med", "tiers": [1], "count": 15 },
+        { "cargo": "weapon", "tiers": [1], "count": 5 }
+      ]
+    },
+    {
+      "path": "crafting", "level": 2, "cost": 1500,
+      "description": ["هذا التطوير يزيد من الحد الأقصى للمشاريع", "مما يسمح لك بصناعة المزيد من الصناديق في نفس الوقت"],
+      "requirements": [
+        { "cargo": "food", "tiers": [1,2], "count": 35 },
+        { "cargo": "med", "tiers": [1,2], "count": 35 },
+        { "cargo": "weapon", "tiers": [1], "count": 15 }
+      ]
+    },
+    {
+      "path": "crafting", "level": 3, "cost": 3000,
+      "description": ["هذا التطوير يزيد من الحد الأقصى للمشاريع", "مما يسمح لك بصناعة المزيد من الصناديق في نفس الوقت"],
+      "requirements": [
+        { "cargo": "food", "tiers": [2], "count": 50 },
+        { "cargo": "med", "tiers": [2], "count": 50 },
+        { "cargo": "weapon", "tiers": [2], "count": 25 }
+      ]
+    },
+    {
+      "path": "crafting", "level": 4, "cost": 5000,
+      "description": ["هذا التطوير يزيد من الحد الأقصى للمشاريع", "مما يسمح لك بصناعة المزيد من الصناديق في نفس الوقت"],
+      "requirements": [
+        { "cargo": "food", "tiers": [2,3], "count": 75 },
+        { "cargo": "med", "tiers": [2,3], "count": 75 },
+        { "cargo": "weapon", "tiers": [2], "count": 35 }
+      ]
+    },
+    {
+      "path": "crafting", "level": 5, "cost": 8000,
+      "description": ["هذا التطوير يزيد من الحد الأقصى للمشاريع", "مما يسمح لك بصناعة المزيد من الصناديق في نفس الوقت"],
+      "requirements": [
+        { "cargo": "food", "tiers": [1,2,3], "count": 150 },
+        { "cargo": "med", "tiers": [1,2,3], "count": 150 },
+        { "cargo": "weapon", "tiers": [1,2,3], "count": 100 }
+      ]
+    }
+  ]
+}

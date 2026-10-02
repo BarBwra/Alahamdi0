@@ -1,0 +1,152 @@
+{
+  "_readme": [
+    "Assembly line recipes. Copied to config/mwh/recipes.json on first boot; edit that copy.",
+    "Reload without restarting: /mwh admin reload",
+    "",
+    "Each ingredient line is:  item, count, display, rarity",
+    "  item    - the REGISTRY ID. This is the only thing matching uses. Display names are",
+    "            player-editable with an anvil and are never trusted.",
+    "  count   - how many are consumed.",
+    "  display - the Arabic label drawn in the terminal. Cosmetic only.",
+    "  rarity  - 1 common .. 5 rarest. Picks the colour of the line. Cosmetic only.",
+    "",
+    "These ids were read directly out of the lang files inside the jars in D:\\Mlife 1.20.1\\mods,",
+    "not guessed. Verify any edit with /mwh admin items - it lists every id in here that is not",
+    "in the registry.",
+    "",
+    "Note: the Skript prototype's 'survivorsarsenal' guesses were wrong for most materials. The",
+    "raw crafting components on this server come from nukacraft; cloth, nails, batteries and",
+    "electronic scrap come from survival_instinct; planks, rubber and fiber fabric come from",
+    "survivorsarsenal."
+  ],
+  "recipes": [
+    {
+      "id": "food_1",
+      "cargo": "food",
+      "tier": 1,
+      "durationSeconds": 900,
+      "value": { "min": 50, "max": 100 },
+      "icon": "survivorsarsenal:cardboard",
+      "ingredients": [
+        { "item": "survivorsarsenal:planks", "count": 4, "display": "ألواح خشبية", "rarity": 1 },
+        { "item": "survival_instinct:nail", "count": 3, "display": "مسامير", "rarity": 1 },
+        { "item": "nukacraft:loose_gears", "count": 2, "display": "تروس", "rarity": 2 }
+      ]
+    },
+    {
+      "id": "food_2",
+      "cargo": "food",
+      "tier": 2,
+      "durationSeconds": 1500,
+      "value": { "min": 100, "max": 250 },
+      "icon": "minecraft:barrel",
+      "ingredients": [
+        { "item": "survivorsarsenal:planks", "count": 6, "display": "ألواح خشبية", "rarity": 1 },
+        { "item": "survival_instinct:nail", "count": 4, "display": "مسامير", "rarity": 1 },
+        { "item": "nukacraft:loose_gears", "count": 3, "display": "تروس", "rarity": 2 },
+        { "item": "nukacraft:magnet", "count": 2, "display": "مغناطيس", "rarity": 3 }
+      ]
+    },
+    {
+      "id": "food_3",
+      "cargo": "food",
+      "tier": 3,
+      "durationSeconds": 2400,
+      "value": { "min": 250, "max": 500 },
+      "icon": "minecraft:chest",
+      "ingredients": [
+        { "item": "survivorsarsenal:planks", "count": 8, "display": "ألواح خشبية", "rarity": 1 },
+        { "item": "survival_instinct:nail", "count": 5, "display": "مسامير", "rarity": 1 },
+        { "item": "nukacraft:loose_gears", "count": 4, "display": "تروس", "rarity": 2 },
+        { "item": "nukacraft:magnet", "count": 2, "display": "مغناطيس", "rarity": 3 },
+        { "item": "nukacraft:aimproccesor", "count": 2, "display": "بطاقة استهداف", "rarity": 4 }
+      ]
+    },
+
+    {
+      "id": "med_1",
+      "cargo": "med",
+      "tier": 1,
+      "durationSeconds": 900,
+      "value": { "min": 50, "max": 100 },
+      "icon": "survival_instinct:bandage",
+      "ingredients": [
+        { "item": "survival_instinct:cloth", "count": 4, "display": "قماش", "rarity": 1 },
+        { "item": "survivorsarsenal:fiber_fabric", "count": 3, "display": "نسيج ليفي", "rarity": 2 },
+        { "item": "survivorsarsenal:rubber", "count": 2, "display": "مطاط", "rarity": 2 }
+      ]
+    },
+    {
+      "id": "med_2",
+      "cargo": "med",
+      "tier": 2,
+      "durationSeconds": 1500,
+      "value": { "min": 100, "max": 250 },
+      "icon": "survival_instinct:medkit_bag",
+      "ingredients": [
+        { "item": "survival_instinct:cloth", "count": 6, "display": "قماش", "rarity": 1 },
+        { "item": "survivorsarsenal:fiber_fabric", "count": 4, "display": "نسيج ليفي", "rarity": 2 },
+        { "item": "survivorsarsenal:rubber", "count": 3, "display": "مطاط", "rarity": 2 },
+        { "item": "nukacraft:raw_fertilizer", "count": 2, "display": "سماد", "rarity": 3 }
+      ]
+    },
+    {
+      "id": "med_3",
+      "cargo": "med",
+      "tier": 3,
+      "durationSeconds": 2400,
+      "value": { "min": 250, "max": 500 },
+      "icon": "survival_instinct:survival_medkit",
+      "ingredients": [
+        { "item": "survival_instinct:cloth", "count": 8, "display": "قماش", "rarity": 1 },
+        { "item": "survivorsarsenal:fiber_fabric", "count": 5, "display": "نسيج ليفي", "rarity": 2 },
+        { "item": "survivorsarsenal:rubber", "count": 4, "display": "مطاط", "rarity": 2 },
+        { "item": "nukacraft:raw_fertilizer", "count": 2, "display": "سماد", "rarity": 3 },
+        { "item": "survival_instinct:electronic_scrap", "count": 2, "display": "خردة إلكترونية", "rarity": 4 }
+      ]
+    },
+
+    {
+      "id": "weapon_1",
+      "cargo": "weapon",
+      "tier": 1,
+      "durationSeconds": 900,
+      "value": { "min": 75, "max": 150 },
+      "icon": "ywzj_vehicle:ammo_machine_gun",
+      "ingredients": [
+        { "item": "nukacraft:copperwires", "count": 4, "display": "أسلاك نحاسية", "rarity": 1 },
+        { "item": "nukacraft:raw_adhesive", "count": 2, "display": "صمغ", "rarity": 2 },
+        { "item": "survival_instinct:batteries", "count": 2, "display": "بطارية", "rarity": 2 }
+      ]
+    },
+    {
+      "id": "weapon_2",
+      "cargo": "weapon",
+      "tier": 2,
+      "durationSeconds": 1500,
+      "value": { "min": 250, "max": 400 },
+      "icon": "ywzj_vehicle:ammo_grenade",
+      "ingredients": [
+        { "item": "nukacraft:copperwires", "count": 6, "display": "أسلاك نحاسية", "rarity": 1 },
+        { "item": "nukacraft:raw_adhesive", "count": 3, "display": "صمغ", "rarity": 2 },
+        { "item": "survival_instinct:batteries", "count": 3, "display": "بطارية", "rarity": 2 },
+        { "item": "nukacraft:reducer", "count": 2, "display": "محول", "rarity": 3 }
+      ]
+    },
+    {
+      "id": "weapon_3",
+      "cargo": "weapon",
+      "tier": 3,
+      "durationSeconds": 2400,
+      "value": { "min": 500, "max": 750 },
+      "icon": "ywzj_vehicle:ammo_missile",
+      "ingredients": [
+        { "item": "nukacraft:copperwires", "count": 8, "display": "أسلاك نحاسية", "rarity": 1 },
+        { "item": "nukacraft:raw_adhesive", "count": 4, "display": "صمغ", "rarity": 2 },
+        { "item": "survival_instinct:batteries", "count": 4, "display": "بطارية", "rarity": 2 },
+        { "item": "nukacraft:reducer", "count": 4, "display": "محول", "rarity": 3 },
+        { "item": "survival_instinct:energy_storage_battery", "count": 2, "display": "بطارية تخزين طاقة", "rarity": 5 }
+      ]
+    }
+  ]
+}
