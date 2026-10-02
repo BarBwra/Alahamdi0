@@ -34,7 +34,7 @@ public class C2SOpenMlumInventory {
         if (player == null || !MlumConfig.replaceInventory()) {
             return;
         }
-        if (player.isSpectator()) {
+        if (player.isSpectator() || com.barbwra.mlum.downed.DownedState.isDowned(player)) {
             return;
         }
         if (player.isCreative() && !MlumConfig.replaceInCreative()) {

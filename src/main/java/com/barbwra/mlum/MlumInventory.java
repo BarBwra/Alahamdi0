@@ -39,6 +39,7 @@ public class MlumInventory {
 
         ModMenus.MENUS.register(modBus);
         ModSounds.SOUNDS.register(modBus);
+        com.barbwra.mlum.downed.ModEntities.ENTITIES.register(modBus);
         modBus.addListener(this::commonSetup);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, MlumConfig.SERVER_SPEC);

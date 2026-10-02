@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Applies the TACZ mixin only when TACZ is actually in the pack.
+ * Applies the TACZ mixins only when TACZ is actually in the pack.
  *
  * <p>Without this, a pack assembled without TACZ would have Mixin try to transform a class that is
  * not there. Every other piece of TACZ compatibility in this mod degrades to "no guns" rather than

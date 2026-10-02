@@ -63,5 +63,7 @@
     "gui.mlum.vehicle.fail.already_out": "ﺝﺭﺎﺨﻟﺎﺑ ﺔﺒﻛﺮﻣ ﻚﻳﺪﻟ",
     "gui.mlum.vehicle.fail.ok": "ﻢﺗ",
     "key.categories.mlum": "MlumInventory",
-    "key.mlum.vehicle_lock": "Vehicle lock (locked / faction / open)"
+    "key.mlum.vehicle_lock": "Vehicle lock (locked / faction / open)",
+    "key.mlum.interact": "Downed: loot / revive / drag, or call for help",
+    "entity.mlum.downed_dummy": "Practice body"
 }

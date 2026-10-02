@@ -67,8 +67,12 @@ public final class ModNetwork {
      * <p>11 -&gt; 12: the worn backpack moved into the Curios {@code back} slot, which Curios already
      * syncs and renders - so the packet this version briefly added was removed again. The bump
      * stands because 11 shipped.</p>
+     *
+     * <p>12 -&gt; 13: the downed system and the timed container search - {@code S2CDowned},
+     * {@code C2SDownedAction}, {@code S2CDistress}, {@code S2CLootSearch}, {@code C2SLootCancel}
+     * and {@code S2CScoutInfo} (the scout's empty-container hints).</p>
      */
-    private static final String PROTOCOL = "12";
+    private static final String PROTOCOL = "13";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             MlumInventory.id("main"),
@@ -233,6 +237,41 @@ public final class ModNetwork {
                 .encoder(S2CVehicleLockState::encode)
                 .decoder(S2CVehicleLockState::decode)
                 .consumerMainThread(S2CVehicleLockState::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CLootSearch.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CLootSearch::encode)
+                .decoder(S2CLootSearch::decode)
+                .consumerMainThread(S2CLootSearch::handle)
+                .add();
+
+        CHANNEL.messageBuilder(C2SLootCancel.class, nextId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(C2SLootCancel::encode)
+                .decoder(C2SLootCancel::decode)
+                .consumerMainThread(C2SLootCancel::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CScoutInfo.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CScoutInfo::encode)
+                .decoder(S2CScoutInfo::decode)
+                .consumerMainThread(S2CScoutInfo::handle)
+                .add();
+        CHANNEL.messageBuilder(S2CDowned.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CDowned::encode)
+                .decoder(S2CDowned::decode)
+                .consumerMainThread(S2CDowned::handle)
+                .add();
+
+        CHANNEL.messageBuilder(C2SDownedAction.class, nextId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(C2SDownedAction::encode)
+                .decoder(C2SDownedAction::decode)
+                .consumerMainThread(C2SDownedAction::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CDistress.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CDistress::encode)
+                .decoder(S2CDistress::decode)
+                .consumerMainThread(S2CDistress::handle)
                 .add();
 
     }

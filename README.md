@@ -1,7 +1,25 @@
 # MlumInventory — Minecraft 1.20.1 / Forge 47.4.10
 
-**v3.3.0** — TACZ tooltips are back, the screen has been rebalanced and given motion, and the
-firearms get a card in the bottom right corner. The vanilla HUD is untouched. See below.
+**v3.9.0** (network protocol 13) — a new field HUD, timed container searching with loot markers, a
+downed-and-revive system, a reworked scout skill and a faster-reload skill. Details for developers
+are in `HANDOFF.md` §5.4 and §11b.
+
+---
+
+## What is new in 3.9.0
+
+| | |
+| --- | --- |
+| **Field HUD** | wrist device (health inside the armour shield, food, XP, ECG), belt carousel, weapon slab, compass. Client config `fieldHud` turns it off and brings vanilla back |
+| **Loot markers** | corner marks and a mouse icon on containers in view; brighter when you look at one in reach; grey once searched |
+| **Timed search** | right-click = 2 s search. Hold Shift = 0.25 s but a 25% chance of a noise that pauses you and draws zombies. Moving or getting hit cancels |
+| **Downed** | lethal damage puts you on the ground for 180 s. Zombies ignore you. F: tap to call your faction, hold to give up |
+| **Reviving** | look at a body, mouse wheel picks loot / revive / drag, F acts. Revive is a 10 s hold. Defib item = instant (uses charge), oxygen item = 5 s hold. Both are placeholder items in config for now |
+| **Scout** | the same markers through walls, 8/12/16 blocks; level 3 shows which are empty |
+| **تعبئة أسرع** | replaces تعشيق أكثر (same id, levels kept): reloads 20 / 50 / 100% faster |
+
+Test commands: `/mlum downed dummy`, `/mlum downed self`, `/mlum downed revive <player>`,
+`/mlum downed charge`, `/mlum downed list`.
 
 ---
 

@@ -30,12 +30,21 @@ public final class ClientSetup {
             // the bag, a chest beside the bag, a faction vault page beside the bag - one screen
             MenuScreens.register(ModMenus.MAIN.get(), BagScreen::new);
         });
+        // the reload skill is read on both sides; this is how the common half learns this client's level
+        com.barbwra.mlum.skill.ReloadSkill.clientLevel = e -> e == net.minecraft.client.Minecraft.getInstance().player
+                ? ClientSkills.levelOf(com.barbwra.mlum.skill.SkillEffects.ATTACHMENTS) : 0;
     }
 
     /**
      * The gun packs' artwork can move on a resource reload - a different pack, or just F3+T - so
      * the firearm card's lookup cache is dropped whenever that happens.
      */
+    @SubscribeEvent
+    public static void onRegisterRenderers(net.minecraftforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
+        event.registerEntityRenderer(com.barbwra.mlum.downed.ModEntities.DOWNED_DUMMY.get(),
+                com.barbwra.mlum.client.downed.DownedDummyRenderer::new);
+    }
+
     @SubscribeEvent
     public static void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener((ResourceManagerReloadListener) manager -> {
@@ -56,10 +65,31 @@ public final class ClientSetup {
     public static void onRegisterOverlays(RegisterGuiOverlaysEvent event) {
         event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "mlum_firearm_card",
                 (gui, graphics, partialTick, width, height) -> {
-                    if (MlumConfig.firearmCard()) {
+                    // the field HUD has its own weapon panel in the same corner
+                    if (MlumConfig.firearmCard() && !MlumConfig.fieldHud()) {
                         WeaponCard.render(graphics, partialTick, width, height);
                     }
                 });
+        // the field HUD: wrist device, belt, weapon panel and compass - see FieldHud
+        event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "mlum_field_hud",
+                (gui, graphics, partialTick, width, height) ->
+                        com.barbwra.mlum.client.hud.field.FieldHud.render(graphics, partialTick, width, height));
+        // marks on the containers in view, under everything else on the HUD
+        event.registerBelow(VanillaGuiOverlay.CROSSHAIR.id(), "mlum_loot_markers",
+                (gui, graphics, partialTick, width, height) ->
+                        com.barbwra.mlum.client.loot.LootMarkers.render(graphics, partialTick, width, height));
+        // the search spinner, over the crosshair it sits under
+        event.registerAbove(VanillaGuiOverlay.CROSSHAIR.id(), "mlum_loot_search",
+                (gui, graphics, partialTick, width, height) ->
+                        com.barbwra.mlum.client.loot.ClientLootSearch.render(graphics, partialTick, width, height));
+        // the downed player's own screen, over everything
+        event.registerAboveAll("mlum_downed",
+                (gui, graphics, partialTick, width, height) ->
+                        com.barbwra.mlum.client.downed.DownedHud.renderSelf(graphics, partialTick, width, height));
+        // the options over a downed body, and faction members calling for help
+        event.registerBelow(VanillaGuiOverlay.CROSSHAIR.id(), "mlum_downed_prompt",
+                (gui, graphics, partialTick, width, height) ->
+                        com.barbwra.mlum.client.downed.DownedHud.renderPrompt(graphics, partialTick, width, height));
         // the vehicle's lock state, over the vehicle mod's own seat list
         event.registerAbove(VanillaGuiOverlay.HOTBAR.id(), "mlum_vehicle_lock",
                 (gui, graphics, partialTick, width, height) ->

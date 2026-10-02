@@ -54,6 +54,7 @@ public final class MlumCommands {
                 new Sub("level", LevelCommand.build()),
                 new Sub("faction", com.barbwra.mlum.faction.FactionCommand.build()),
                 new Sub("warehouse", WarehouseCommand.build()),
+                new Sub("downed", com.barbwra.mlum.downed.DownedCommand.build()),
         };
 
         for (Sub sub : subs) {

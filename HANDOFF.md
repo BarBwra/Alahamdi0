@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.8.0**, network protocol **10**.
+Last updated at **mlum 3.9.0**, network protocol **13**.
 
 ---
 
@@ -233,8 +233,8 @@ id|name|description|icon|level1|level2|level3|price1|price2|price3[|soon]
 
 | id | name | what it does | where |
 |---|---|---|---|
-| `attachments` | تعشيق أكثر | guns accept attachment types their data pack forbids | mixin, §5.4 |
-| `scout` | الباحث | containers outlined through walls, 8/12/16 blocks | `ScoutOverlay` |
+| `attachments` | تعبئة أسرع | reloads 20 / 50 / 100% faster | mixins, §5.4 |
+| `scout` | الباحث | container markers through walls, 8/12/16 blocks; level 3 dims the empty ones | `LootMarkers`, `ScoutInfo` |
 | `butcher` | الجزار | zombies drop more meat | `LivingDropsEvent` |
 | `blade_master` | السلاح اليدوي | melee kills drop more of **everything** | `LivingDropsEvent` |
 | `medic` | المسعف | everything that heals you heals more | `LivingHealEvent` |
@@ -252,29 +252,27 @@ A 15% bonus on a single-item drop is 0.15 of an item. Flooring it would make eve
 the game — which is most of them — ignore the skill entirely. `SkillEffects.scale` rolls the
 remainder, so it pays out about right over a session rather than exactly right per kill.
 
-### 5.4 The TACZ mixin — why it was unavoidable
+### 5.4 The TACZ mixins — the reload skill
 
-A gun's mounting points live in its **data pack entry**, not on the item. TACZ gates in two places:
+The id `attachments` was **kept** so anyone who bought the old تعشيق أكثر skill keeps their level; it
+is now تعبئة أسرع. (The old skill — extra attachment slots — was dropped at the user's request, along
+with `TaczAttachmentMixin`, `GunUpgrade` and `SkillGuns`.)
 
-```
-installAttachment: if (!allowAttachment(gun, part)) return;          // refuses to fit it
-getAttachment:     if (!allowAttachmentType(gun, type)) return EMPTY; // refuses to read it back
-```
+TACZ does not count a reload down. It stores `reloadTimestamp` when the reload starts and every gun
+script asks `ModernKineticGunScriptAPI.getReloadTime()` (`now - reloadTimestamp`) when to feed the
+rounds and when to finish — the default tick and every Lua script (e.g. `xmag_reload_logic.lua`).
 
-So writing the attachment into the gun's NBT directly does **not** work — TACZ hands back an empty
-stack and the part applies no stats. Relaxing the check is the only route.
+- `mixin/TaczReloadMixin` (common): `@Inject RETURN` on `getReloadTime`, multiplies the answer by
+  `ReloadSkill.factor(getShooter())` — ×1.2 / ×1.5 / ×2.0. Zero (no reload) stays zero.
+- `mixin/TaczReloadAnimMixin` (client): `@ModifyVariable HEAD` on
+  `ObjectAnimationRunner.updateProgress(long)`, scaling the frame step for animations whose name
+  starts with `reload`, so the hands keep up with the rounds.
+- `ReloadSkill.clientLevel` is set in `ClientSetup` so the common class never names a client type.
 
-`mixin/TaczAttachmentMixin` injects at `RETURN` on both methods and only ever flips `false → true`,
-and only for a gun carrying `GunUpgrade.TAG` (`MlumAttach`, an int level). `SkillGuns` stamps that tag
-onto every gun in the player's inventory once a second and strips it when the skill is dropped —
-**a sweep, not a hook on purchase**, because guns arrive from chests, kills, trades and commands.
+All `remap = false`, `defaultRequire 0` (a TACZ update that moves these methods turns the skill off
+instead of crashing the server). `MlumMixinPlugin` switches the config off when TACZ is absent.
 
-`MlumMixinPlugin` switches the whole config off when TACZ is absent (`LoadingModList`, because mods
-are not constructed yet at that point). Declared via `MixinConfigs` in the jar manifest, set in
-`build.gradle`.
-
-**What it cannot fix:** whether the gun's *model* has somewhere to hang the part. A rifle with no rail
-will mount a scope that works and is invisible.
+**Not tested in game.** Check the log for mixin warnings after the first launch.
 
 ### 5.5 The medic window
 
@@ -472,6 +470,40 @@ client `lockHudX` / `lockHudY`.
 
 ---
 
+## 11b. Added in 3.9.0 — field HUD, timed search, downed system
+
+### Field HUD (`client/hud/field/`)
+`FieldHud` replaces vanilla health/armor/food/hotbar/item-name when `fieldHud = true` (client config):
+wrist device bottom-left (XP edge, ECG, `ArmorEmblem` around the health %, food bar), belt carousel
+bottom-centre, weapon slab bottom-right (TACZ art, ammo, magazine ticks via
+`TaczAttachments.magazineSize`), compass at the top. Accent colour `fieldHudAccent`. `ZoneToast` and
+`LevelUpToast` render from here now, because cancelling HOTBAR also kills its Post event. The old
+firearm card only draws when the field HUD is off. `HudPen` is a thin wrapper over `McCanvas`.
+
+### Loot markers and the timed search (`loot/`, `client/loot/`)
+- Markers are drawn **in screen space** by projecting with the matrices captured in
+  `RenderLevelStageEvent` (`WorldProjector`). World-space lines are dropped by shader packs — that is
+  most likely why the old scout outlines were never seen.
+- Right-clicking a container starts a search (`LootSearch`, server): 2 s, or 0.25 s while sneaking with
+  a 25% chance of a noise that pauses 0.5 s and pulls nearby monsters. Moving, taking damage or
+  releasing the button cancels. On completion the normal open path runs (`ServerEvents.tryTakeover`
+  or `BlockState.use`). Config `[loot_search]`.
+
+### Downed and revive (`downed/`, `client/downed/`)
+- Lethal damage downs a player instead (`DownedService`, HIGH `LivingDeathEvent`): 180 s bleed-out,
+  smaller hitbox via `EntityEvent.Size`, drawn in the sleeping pose for others, camera locked to the
+  sky. Mobs drop and refuse targets on downed players. Players can finish them (config).
+- F (`key.mlum.interact`) on a body: wheel picks loot / revive / drag. Revive = hold 10 s; oxygen item
+  in hand = hold 5 s and consumed; defib item = instant, costs `defibCost` charge (`ChargeTag` NBT).
+  Defib and oxygen are **placeholder items** from config (`blaze_rod`, `phantom_membrane`) until the
+  real ones are made.
+- While down: tap F = distress to online faction members (cooldown), hold F 3 s = give up.
+- After a revive: slowness + weakness, and a shorter timer if downed again within 120 s.
+- Loot view (`DownedLoot`): 54-slot container over the body's inventory, armour, offhand and the
+  Curios back slot.
+- Test: `/mlum downed dummy|self|revive <player>|charge|list` (op 2). The dummy is a `DownedDummy`
+  entity that can be looted/revived/dragged.
+
 ## 12. Open items
 
 | # | Item | State |
@@ -483,6 +515,10 @@ client `lockHudX` / `lockHudY`.
 | 5 | Faction donations / page purchase | not built |
 | 6 | VIP double-XP marker on `LevelHud` | not built — must be subtle, explicitly *not* a banner |
 | 7 | Global double-XP announcement | not built — explicitly *not* a boss bar |
+| 8 | Real defibrillator | planned: TACZ-style item, charge by rubbing the paddles, release on the body; batteries 100 / 250, 50 per revive, R swaps a random carried battery |
+| 9 | Batteries in the bag | planned: stack 1, show `c/max` instead of a count, item background filled white by charge (`ChargeTag` already exists; the belt already draws it) |
+| 10 | Real oxygen kit | planned: currently the config placeholder item |
+| 11 | **3.9.0 untested** | written without a compile in the cloud session (Forge maven blocked). Build locally and send any errors |
 
 **Nothing from 3.5.0 onward has been tested in game by me.** It compiles, the jar is verified clean,
 and the mixin applies without error in the log — that is all. Several things shipped broken and were

@@ -5,7 +5,10 @@
   "plugin": "com.barbwra.mlum.mixin.MlumMixinPlugin",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
-    "TaczAttachmentMixin"
+    "TaczReloadMixin"
+  ],
+  "client": [
+    "TaczReloadAnimMixin"
   ],
   "injectors": {
     "defaultRequire": 0

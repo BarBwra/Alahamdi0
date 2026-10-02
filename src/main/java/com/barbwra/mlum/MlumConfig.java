@@ -78,6 +78,32 @@ public final class MlumConfig {
         public final ForgeConfigSpec.BooleanValue menuGuard;
         public final ForgeConfigSpec.IntValue menuGuardRadius;
         public final ForgeConfigSpec.BooleanValue infiniteVehicleEnergy;
+
+        public final ForgeConfigSpec.BooleanValue lootSearch;
+        public final ForgeConfigSpec.DoubleValue lootSeconds;
+        public final ForgeConfigSpec.DoubleValue lootFastSeconds;
+        public final ForgeConfigSpec.DoubleValue lootNoiseChance;
+        public final ForgeConfigSpec.DoubleValue lootNoisePause;
+        public final ForgeConfigSpec.IntValue lootNoiseRadius;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> lootIgnoreBlocks;
+
+        public final ForgeConfigSpec.BooleanValue downed;
+        public final ForgeConfigSpec.IntValue downedSeconds;
+        public final ForgeConfigSpec.IntValue reviveSeconds;
+        public final ForgeConfigSpec.DoubleValue reviveRange;
+        public final ForgeConfigSpec.DoubleValue reviveHealth;
+        public final ForgeConfigSpec.IntValue reviveWeakSeconds;
+        public final ForgeConfigSpec.IntValue redownWindowSeconds;
+        public final ForgeConfigSpec.IntValue redownSeconds;
+        public final ForgeConfigSpec.BooleanValue playersFinishDowned;
+        public final ForgeConfigSpec.IntValue giveUpSeconds;
+        public final ForgeConfigSpec.IntValue distressSeconds;
+        public final ForgeConfigSpec.IntValue distressCooldownSeconds;
+        public final ForgeConfigSpec.ConfigValue<String> defibItem;
+        public final ForgeConfigSpec.IntValue defibCapacity;
+        public final ForgeConfigSpec.IntValue defibCost;
+        public final ForgeConfigSpec.ConfigValue<String> oxygenItem;
+        public final ForgeConfigSpec.IntValue oxygenSeconds;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> ranks;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> moneyPacks;
         public final ForgeConfigSpec.ConfigValue<String> storeNote;
@@ -349,8 +375,8 @@ public final class MlumConfig {
                             "                them in the number font, e.g. {n}+10%{/n}.",
                             "  price1..3   - the price of reaching that level.")
                     .defineList("skills", List.of(
-                                    "attachments|تعشيق أكثر|أسلحتك تقبل قطع ما كانت تقبلها. الترقية تنحط على السلاح نفسه.|bolt|ليزر و كاتم|+ مخزن و قبضة|كل القطع|500|1500|5000",
-                                    "scout|الباحث|الصناديق القريبة منك تلمع لك.|eye|{n}8{/n} بلوك|{n}12{/n} بلوك|{n}16{/n} بلوك|500|1500|5000",
+                                    "attachments|تعبئة أسرع|تعبّي سلاحك أسرع.|bolt|{n}+20%{/n}|{n}+50%{/n}|{n}+100%{/n}|500|1500|5000",
+                                    "scout|الباحث|تشوف الصناديق من ورا الجدران، وبالمستوى الثالث تعرف الفاضي منها.|eye|{n}8{/n} بلوك|{n}12{/n} بلوك|{n}16{/n} بلوك|500|1500|5000",
                                     "butcher|الجزار|الزومبي يطيح لحم أكثر.|cleaver|{n}+10%{/n}|{n}+20%{/n}|{n}+35%{/n}|500|1500|5000",
                                     "blade_master|السلاح اليدوي|القتل بسلاح يدوي ينزل أغراض أكثر من الزومبي والوحوش.|blade|{n}+15%{/n}|{n}+30%{/n}|{n}+50%{/n}|500|1500|5000",
                                     "medic|المسعف|كل شي يعالجك يعالج أكثر.|cross|{n}+15%{/n}|{n}+30%{/n}|{n}+50%{/n}|500|1500|5000",
@@ -389,6 +415,91 @@ public final class MlumConfig {
                             "topped back up while anyone is riding, so they never need refuelling.",
                             "Turn off to make fuel a real resource again.")
                     .define("infiniteVehicleEnergy", true);
+            b.pop();
+
+            b.comment("Searching (التفتيش): opening anything that stores items takes a moment.",
+                    "Right click and keep holding. Hold Shift as well to search fast, at the risk of",
+                    "knocking something over: a noise that stalls the search and brings zombies.").push("loot_search");
+            lootSearch = b
+                    .comment("Off opens every container instantly, the vanilla way.")
+                    .define("enabled", true);
+            lootSeconds = b
+                    .comment("How long a normal search takes.")
+                    .defineInRange("searchSeconds", 2.0D, 0.0D, 30.0D);
+            lootFastSeconds = b
+                    .comment("How long a search takes with Shift held.")
+                    .defineInRange("fastSeconds", 0.25D, 0.0D, 30.0D);
+            lootNoiseChance = b
+                    .comment("The chance a fast search makes a noise, 0 to 1.")
+                    .defineInRange("noiseChance", 0.25D, 0.0D, 1.0D);
+            lootNoisePause = b
+                    .comment("How long the noise stalls the search, in seconds.")
+                    .defineInRange("noisePauseSeconds", 0.5D, 0.0D, 10.0D);
+            lootNoiseRadius = b
+                    .comment("Zombies and other hostiles this close hear the noise and come for you.")
+                    .defineInRange("noiseRadius", 16, 0, 64);
+            lootIgnoreBlocks = b
+                    .comment("Block ids that open instantly and get no marker, e.g. a modded machine",
+                            "that happens to hold items. Furnaces, hoppers, dispensers, brewing stands",
+                            "and the like are already left alone.")
+                    .defineList("ignoreBlocks", List.of(), entry -> entry instanceof String);
+            b.pop();
+
+            b.comment("Downed (الإصابة): a killing blow puts a player on the ground instead.",
+                    "They can be revived by anyone or looted, and die for real when the time runs out.").push("downed");
+            downed = b
+                    .comment("Off is vanilla death.")
+                    .define("enabled", true);
+            downedSeconds = b
+                    .comment("How long a downed player lasts before they bleed out.")
+                    .defineInRange("bleedOutSeconds", 180, 5, 3600);
+            reviveSeconds = b
+                    .comment("How long F has to be held to revive someone with nothing in hand.")
+                    .defineInRange("reviveSeconds", 10, 1, 120);
+            reviveRange = b
+                    .comment("How close a reviver or looter has to be, in blocks.")
+                    .defineInRange("reviveRange", 3.0D, 1.0D, 8.0D);
+            reviveHealth = b
+                    .comment("The health a revived player comes back with. 20 is full.")
+                    .defineInRange("reviveHealth", 6.0D, 1.0D, 20.0D);
+            reviveWeakSeconds = b
+                    .comment("Slowness and weakness after being revived, in seconds. 0 for none.")
+                    .defineInRange("weakSeconds", 10, 0, 300);
+            redownWindowSeconds = b
+                    .comment("Going down again this soon after a revive uses the shorter timer below.")
+                    .defineInRange("redownWindowSeconds", 120, 0, 3600);
+            redownSeconds = b
+                    .comment("The bleed-out time for a player downed again inside that window.")
+                    .defineInRange("redownSeconds", 60, 5, 3600);
+            playersFinishDowned = b
+                    .comment("Another player's attack finishes a downed player. Zombies always ignore them.")
+                    .define("playersCanFinish", true);
+            giveUpSeconds = b
+                    .comment("How long a downed player holds F to give up and die now.")
+                    .defineInRange("giveUpSeconds", 3, 1, 30);
+            distressSeconds = b
+                    .comment("How long a distress call stays on the faction's screens.")
+                    .defineInRange("distressSeconds", 30, 5, 300);
+            distressCooldownSeconds = b
+                    .comment("How often a downed player may call for help.")
+                    .defineInRange("distressCooldownSeconds", 60, 5, 600);
+            defibItem = b
+                    .comment("The item that works as the defibrillator for now: look at a downed player",
+                            "and use it to revive them at once. A placeholder until the real one exists.")
+                    .define("defibItem", "minecraft:blaze_rod");
+            defibCapacity = b
+                    .comment("The charge a defibrillator holds.")
+                    .defineInRange("defibCapacity", 250, 1, 100000);
+            defibCost = b
+                    .comment("The charge one revive spends.")
+                    .defineInRange("defibCost", 50, 1, 100000);
+            oxygenItem = b
+                    .comment("The item that works as the oxygen kit for now: hold use on a downed player.",
+                            "Spent after one revive. A placeholder until the real one exists.")
+                    .define("oxygenItem", "minecraft:phantom_membrane");
+            oxygenSeconds = b
+                    .comment("How long the oxygen kit has to be held on a downed player.")
+                    .defineInRange("oxygenSeconds", 5, 1, 60);
             b.pop();
 
             b.comment("Ranks (الرتب): the ladder shown beside the wallet, and the store screen.",
@@ -440,6 +551,10 @@ public final class MlumConfig {
         public final ForgeConfigSpec.BooleanValue opOnlyHitboxes;
         public final ForgeConfigSpec.BooleanValue attachmentSlots;
         public final ForgeConfigSpec.BooleanValue firearmCard;
+        public final ForgeConfigSpec.BooleanValue fieldHud;
+        public final ForgeConfigSpec.BooleanValue lootMarkers;
+        public final ForgeConfigSpec.IntValue lootMarkerRange;
+        public final ForgeConfigSpec.ConfigValue<String> fieldHudAccent;
 
         public final ForgeConfigSpec.BooleanValue animationsEnabled;
         public final ForgeConfigSpec.DoubleValue animationSpeed;
@@ -538,6 +653,22 @@ public final class MlumConfig {
                             "This also hides TACZ's own ammo readout, which occupies the same corner.",
                             "Off gives TACZ its readout back, with no other change.")
                     .define("firearmCard", true);
+            fieldHud = b
+                    .comment("The field HUD: a wrist device bottom left (heartbeat, health inside the",
+                            "armour shield, food, level), the belt in the middle instead of the hotbar,",
+                            "a weapon panel bottom right and a compass at the top. It replaces the",
+                            "vanilla hearts, armour, hunger, hotbar and experience bar, the level bar",
+                            "and the firearm card. Off brings every one of those back exactly as before.")
+                    .define("fieldHud", true);
+            fieldHudAccent = b
+                    .comment("The field HUD's colour as RRGGBB hex. A8C66C is the olive it was designed in.")
+                    .define("fieldHudAccent", "A8C66C");
+            lootMarkers = b
+                    .comment("Corner marks and a mouse icon on containers you can see and search.")
+                    .define("lootMarkers", true);
+            lootMarkerRange = b
+                    .comment("How far away a container gets its marker, in blocks.")
+                    .defineInRange("lootMarkerRange", 10, 2, 32);
             b.pop();
 
             b.comment("Motion. Everything here is cosmetic and can be turned off wholesale.").push("animations");
@@ -856,6 +987,106 @@ public final class MlumConfig {
         return serverReady() ? SERVER.menuGuardRadius.get() : 10;
     }
 
+    /* ---- searching ---- */
+
+    public static boolean lootSearch() {
+        return !serverReady() || SERVER.lootSearch.get();
+    }
+
+    public static double lootSeconds() {
+        return serverReady() ? SERVER.lootSeconds.get() : 2.0D;
+    }
+
+    public static double lootFastSeconds() {
+        return serverReady() ? SERVER.lootFastSeconds.get() : 0.25D;
+    }
+
+    public static double lootNoiseChance() {
+        return serverReady() ? SERVER.lootNoiseChance.get() : 0.25D;
+    }
+
+    public static double lootNoisePause() {
+        return serverReady() ? SERVER.lootNoisePause.get() : 0.5D;
+    }
+
+    public static int lootNoiseRadius() {
+        return serverReady() ? SERVER.lootNoiseRadius.get() : 16;
+    }
+
+    public static List<? extends String> lootIgnoredBlocks() {
+        return serverReady() ? SERVER.lootIgnoreBlocks.get() : List.of();
+    }
+
+    /* ---- downed ---- */
+
+    public static boolean downed() {
+        return !serverReady() || SERVER.downed.get();
+    }
+
+    public static int downedSeconds() {
+        return serverReady() ? SERVER.downedSeconds.get() : 180;
+    }
+
+    public static int reviveSeconds() {
+        return serverReady() ? SERVER.reviveSeconds.get() : 10;
+    }
+
+    public static double reviveRange() {
+        return serverReady() ? SERVER.reviveRange.get() : 3.0D;
+    }
+
+    public static float reviveHealth() {
+        return serverReady() ? SERVER.reviveHealth.get().floatValue() : 6.0F;
+    }
+
+    public static int reviveWeakSeconds() {
+        return serverReady() ? SERVER.reviveWeakSeconds.get() : 10;
+    }
+
+    public static int redownWindowSeconds() {
+        return serverReady() ? SERVER.redownWindowSeconds.get() : 120;
+    }
+
+    public static int redownSeconds() {
+        return serverReady() ? SERVER.redownSeconds.get() : 60;
+    }
+
+    public static boolean playersFinishDowned() {
+        return !serverReady() || SERVER.playersFinishDowned.get();
+    }
+
+    public static int giveUpSeconds() {
+        return serverReady() ? SERVER.giveUpSeconds.get() : 3;
+    }
+
+    public static int distressSeconds() {
+        return serverReady() ? SERVER.distressSeconds.get() : 30;
+    }
+
+    public static int distressCooldownSeconds() {
+        return serverReady() ? SERVER.distressCooldownSeconds.get() : 60;
+    }
+
+    public static String defibItem() {
+        return serverReady() ? SERVER.defibItem.get() : "minecraft:blaze_rod";
+    }
+
+    public static int defibCapacity() {
+        return serverReady() ? SERVER.defibCapacity.get() : 250;
+    }
+
+    public static int defibCost() {
+        return serverReady() ? SERVER.defibCost.get() : 50;
+    }
+
+    public static String oxygenItem() {
+        return serverReady() ? SERVER.oxygenItem.get() : "minecraft:phantom_membrane";
+    }
+
+    public static int oxygenSeconds() {
+        return serverReady() ? SERVER.oxygenSeconds.get() : 5;
+    }
+
     public static boolean infiniteVehicleEnergy() {
         return serverReady() ? SERVER.infiniteVehicleEnergy.get() : true;
     }
@@ -1102,6 +1333,38 @@ public final class MlumConfig {
 
     public static boolean firearmCard() {
         return !clientReady() || CLIENT.firearmCard.get();
+    }
+
+    public static boolean fieldHud() {
+        return !clientReady() || CLIENT.fieldHud.get();
+    }
+
+    public static boolean lootMarkers() {
+        return !clientReady() || CLIENT.lootMarkers.get();
+    }
+
+    public static int lootMarkerRange() {
+        return clientReady() ? CLIENT.lootMarkerRange.get() : 10;
+    }
+
+    private static String fieldAccentRaw;
+    private static int fieldAccent = 0xFFA8C66C;
+
+    /** The field HUD's accent as opaque ARGB, re-parsed only when the config line changes. */
+    public static int fieldHudAccent() {
+        if (!clientReady()) {
+            return 0xFFA8C66C;
+        }
+        String raw = CLIENT.fieldHudAccent.get();
+        if (!raw.equals(fieldAccentRaw)) {
+            fieldAccentRaw = raw;
+            try {
+                fieldAccent = 0xFF000000 | Integer.parseInt(raw.trim().replace("#", ""), 16);
+            } catch (NumberFormatException bad) {
+                fieldAccent = 0xFFA8C66C;
+            }
+        }
+        return fieldAccent;
     }
 
     public static boolean animationsEnabled() {

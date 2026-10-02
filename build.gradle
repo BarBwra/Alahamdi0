@@ -169,10 +169,10 @@ tasks.named('jar', Jar).configure {
                 'Implementation-Version'  : project.jar.archiveVersion,
                 'Implementation-Vendor'   : mod_authors,
                 /*
-                 * The one mixin this mod ships, for the تعشيق أكثر skill - TACZ gates both
-                 * installing and reading an attachment on its own data pack, so there is no way to
-                 * grant extra mounting points from outside. MlumMixinPlugin switches it off
-                 * entirely when TACZ is not in the pack.
+                 * The mixins this mod ships, for the تعبئة أسرع skill - TACZ times every reload
+                 * from one method, so the skill runs that clock faster, and the client plays the
+                 * reload animation to match. MlumMixinPlugin switches them off entirely when TACZ
+                 * is not in the pack.
                  */
                 'MixinConfigs'            : 'mlum.mixins.json'
         ])

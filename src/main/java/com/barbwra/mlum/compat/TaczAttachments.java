@@ -92,6 +92,28 @@ public final class TaczAttachments {
         return gunOf(stack) != null;
     }
 
+    /**
+     * How many rounds this gun's magazine holds right now, extended magazine included, or -1.
+     *
+     * <p>Not on the stack: the base capacity is in the gun's data pack entry and the bonus comes
+     * from whatever magazine is fitted, which is exactly what TACZ's own helper adds up. The HUD's
+     * round strip needs it to draw the spent rounds as well as the loaded ones.</p>
+     */
+    public static int magazineSize(ItemStack stack) {
+        IGun gun = gunOf(stack);
+        if (gun == null) {
+            return -1;
+        }
+        try {
+            return com.tacz.guns.api.TimelessAPI.getCommonGunIndex(gun.getGunId(stack))
+                    .map(index -> com.tacz.guns.util.AttachmentDataUtils
+                            .getAmmoCountWithAttachment(stack, index.getGunData()))
+                    .orElse(-1);
+        } catch (Throwable broken) {
+            return -1;
+        }
+    }
+
     /** What is currently fitted in that slot, or empty. */
     public static ItemStack installed(ItemStack gun, AttachmentType type) {
         IGun iGun = gunOf(gun);

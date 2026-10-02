@@ -211,6 +211,21 @@ public final class ClientEvents {
             event.setCanceled(true);
         }
 
+        /*
+         * The field HUD redraws all of these itself: hearts, armour and hunger live on the wrist
+         * device, the hotbar is the belt, and the held item's name is drawn over the belt.
+         */
+        if (MlumConfig.fieldHud()) {
+            var overlay = event.getOverlay();
+            if (overlay == VanillaGuiOverlay.PLAYER_HEALTH.type()
+                    || overlay == VanillaGuiOverlay.ARMOR_LEVEL.type()
+                    || overlay == VanillaGuiOverlay.FOOD_LEVEL.type()
+                    || overlay == VanillaGuiOverlay.HOTBAR.type()
+                    || overlay == VanillaGuiOverlay.ITEM_NAME.type()) {
+                event.setCanceled(true);
+            }
+        }
+
     }
 
     /** Set while a vitals row is drawn lifted; cleared by the pop that undoes the lift. */
@@ -299,13 +314,15 @@ public final class ClientEvents {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         WeaponCard.reset();
+        com.barbwra.mlum.client.hud.field.FieldHud.reset();
         ClientZoneNotice.clear();
         com.barbwra.mlum.client.ClientLevelUp.clear();
         ClientLevelData.clear();
         ClientQuestBoard.clear();
         ClientVehicleData.clear();
         com.barbwra.mlum.client.ClientSkills.clear();
-        com.barbwra.mlum.client.ScoutOverlay.clear();
+        com.barbwra.mlum.client.loot.LootMarkers.clear();
+        com.barbwra.mlum.client.loot.ClientLootSearch.clear();
         com.barbwra.mlum.client.ClientRanks.clear();
         com.barbwra.mlum.client.ClientVehicleLock.clear();
         com.barbwra.mlum.client.ui.mc.UiState.closeStore();

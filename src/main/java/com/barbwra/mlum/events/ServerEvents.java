@@ -170,6 +170,22 @@ public final class ServerEvents {
 
         BlockPos pos = event.getPos();
         BlockState state = level.getBlockState(pos);
+        if (tryTakeover(player, pos, state)) {
+            event.setCanceled(true);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+        }
+    }
+
+    /**
+     * Opens a vanilla chest, barrel or ender chest in the bag's own screen.
+     *
+     * <p>Split out of the click handler so a finished search can open the container it searched
+     * through exactly the same path a click would have taken - see {@code LootSearch}.</p>
+     *
+     * @return true when this mod's screen was opened; false leaves the block to its own behaviour
+     */
+    public static boolean tryTakeover(ServerPlayer player, BlockPos pos, BlockState state) {
+        Level level = player.level();
         Block block = state.getBlock();
 
         Container container = null;
@@ -178,19 +194,19 @@ public final class ServerEvents {
 
         if (block instanceof ChestBlock chestBlock) {
             if (!MlumConfig.takeoverChests()) {
-                return;
+                return false;
             }
             // null when the chest is blocked by a solid block or a cat is sitting on it
             MenuProvider provider = state.getMenuProvider(level, pos);
             if (provider == null) {
-                return;
+                return false;
             }
             container = ChestBlock.getContainer(chestBlock, state, level, pos, false);
             title = provider.getDisplayName();
             kind = Kind.CHEST;
         } else if (block instanceof BarrelBlock) {
             if (!MlumConfig.takeoverBarrels()) {
-                return;
+                return false;
             }
             if (level.getBlockEntity(pos) instanceof BarrelBlockEntity barrel) {
                 container = barrel;
@@ -199,7 +215,7 @@ public final class ServerEvents {
             }
         } else if (block instanceof EnderChestBlock) {
             if (!MlumConfig.takeoverEnderChest()) {
-                return;
+                return false;
             }
             if (level.getBlockEntity(pos) instanceof EnderChestBlockEntity enderChest) {
                 PlayerEnderChestContainer inventory = player.getEnderChestInventory();
@@ -209,23 +225,21 @@ public final class ServerEvents {
                 kind = Kind.ENDER;
             }
         } else {
-            return;
+            return false;
         }
 
         if (container == null || title == null) {
-            return;
+            return false;
         }
 
         int rows = container.getContainerSize() / 9;
         if (rows != 3 && rows != 6) {
-            return;   // not a shape this layout can draw - leave it to vanilla
+            return false;   // not a shape this layout can draw - leave it to vanilla
         }
 
         openMlumScreen(player, container, title, rows);
         awardAndAnger(player, kind);
-
-        event.setCanceled(true);
-        event.setCancellationResult(InteractionResult.SUCCESS);
+        return true;
     }
 
     /** Opens the tactical menu with a container in the left column. */
