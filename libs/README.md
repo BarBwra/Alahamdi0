@@ -1,6 +1,6 @@
 # libs
 
-This folder is **not** in the repository. It holds one build-time mod jar that the project compiles
+This folder is **not** in the repository. It holds the build-time mod jars that the project compiles
 against and never ships.
 
 ## What goes here
@@ -8,6 +8,7 @@ against and never ships.
 | File | Where to get it |
 |---|---|
 | `tacz-1.20.1-1.1.8-hotfix.jar` | CurseForge — *Timeless and Classics Zero*, Minecraft 1.20.1, version **1.1.8-hotfix** |
+| `curios-forge-5.14.1+1.20.1.jar` | CurseForge — *Curios API*, Minecraft 1.20.1, version **5.14.1** (the worn backpack slot) |
 
 Drop the jar in with exactly that filename, or edit the path in `build.gradle`:
 

@@ -133,6 +133,12 @@ dependencies {
      * without it degrades to "no attachments" instead of crashing on a missing class.
      */
     compileOnly files("libs/tacz-1.20.1-1.1.8-hotfix.jar")
+
+    /*
+     * Curios, compile time only - the worn backpack lives in its "back" slot (CuriosBackpack).
+     * Same deal as TACZ: never bundled, and the server already runs Curios.
+     */
+    compileOnly files("libs/curios-forge-5.14.1+1.20.1.jar")
 }
 
 // This block of code expands all declared replace properties in the specified resource targets.
