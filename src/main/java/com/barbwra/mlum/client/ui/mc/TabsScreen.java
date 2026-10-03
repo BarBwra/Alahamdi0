@@ -635,6 +635,7 @@ public class TabsScreen extends Screen implements UiPage {
             }
             return true;
         }
+        UiSounds.click();
         String id = hit.id;
         if (id.startsWith("tab:") && hit.data instanceof Integer t) {
             UiScreens.go(tab, t);

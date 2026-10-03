@@ -3,8 +3,6 @@ package com.barbwra.mlum.client.screens;
 import com.barbwra.mlum.client.hud.field.HudPen;
 import com.barbwra.mlum.client.ui.text.Shaped;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
@@ -116,6 +114,7 @@ public final class ScreenKit {
         ids.add(id);
         if (hover && !id.equals(lastHover)) {
             lastHover = id;
+            com.barbwra.mlum.client.ui.mc.UiSounds.hover();
         } else if (!hover && id.equals(lastHover)) {
             lastHover = null;
         }
@@ -133,7 +132,7 @@ public final class ScreenKit {
     }
 
     public static void click() {
-        Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1.0F, 0.7F));
+        com.barbwra.mlum.client.ui.mc.UiSounds.click();
     }
 
     /** A dark vertical wash over the whole screen, heavier at the bottom. */

@@ -633,6 +633,15 @@ public final class MlumConfig {
         public final ForgeConfigSpec.ConfigValue<String> newsUrl;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> news;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> tips;
+        public final ForgeConfigSpec.BooleanValue shoulderCamera;
+        public final ForgeConfigSpec.DoubleValue shoulderOffset;
+        public final ForgeConfigSpec.DoubleValue shoulderDistance;
+        public final ForgeConfigSpec.BooleanValue aimMarker;
+        public final ForgeConfigSpec.BooleanValue itemPhysics;
+        public final ForgeConfigSpec.BooleanValue inspectItem;
+        public final ForgeConfigSpec.BooleanValue smoothDoors;
+        public final ForgeConfigSpec.BooleanValue healthFeel;
+        public final ForgeConfigSpec.BooleanValue healthMuffle;
         public final ForgeConfigSpec.ConfigValue<String> fieldHudAccent;
         public final ForgeConfigSpec.DoubleValue fieldHudScale;
 
@@ -671,7 +680,7 @@ public final class MlumConfig {
                             "Raise the number to move the line up.")
                     .defineInRange("vehicleLockHudY", 126, 0, 4096);
             uiSounds = b
-                    .comment("The static between menus, the coin and the pick-up ticks.")
+                    .comment("The static between menus, the coin, the pick-up ticks and the button sounds.")
                     .define("sounds", true);
             b.pop();
 
@@ -755,7 +764,7 @@ public final class MlumConfig {
                     .defineInRange("lootMarkerRange", 10, 2, 32);
             sidebar = b
                     .comment("The side panel on the right: server name, money, faction, players online.",
-                            "Its key (H by default) shows and hides it while playing.")
+                            "Its key (J by default) shows and hides it while playing.")
                     .define("sidebar", true);
             b.pop();
 
@@ -786,6 +795,38 @@ public final class MlumConfig {
                             "الغيلي يخفيك إذا نزلت بـ Shift وثبت مكانك",
                             "الفلوس اللي في حسابك ما تنسرق",
                             "اكتب /mlum ticket إذا عندك مشكلة وتوصل للإدارة"), entry -> entry instanceof String);
+            b.pop();
+
+            b.comment("How the world feels to play in. All of it is client side and can be switched off.").push("feel");
+            shoulderCamera = b
+                    .comment("F5 puts the camera over your shoulder instead of straight behind your head.",
+                            "Its key (V by default) swaps which shoulder.")
+                    .define("shoulderCamera", true);
+            shoulderOffset = b
+                    .comment("How far to the side of your head the shoulder camera sits, in blocks.")
+                    .defineInRange("shoulderOffset", 0.65D, 0.0D, 1.5D);
+            shoulderDistance = b
+                    .comment("How far behind you the shoulder camera sits, in blocks.")
+                    .defineInRange("shoulderDistance", 2.4D, 1.0D, 4.0D);
+            aimMarker = b
+                    .comment("In the shoulder camera, a mark where you are actually aiming - where a gun's",
+                            "bullet goes and what a click would hit - since that is no longer the middle.")
+                    .define("aimMarker", true);
+            itemPhysics = b
+                    .comment("Things on the ground lie flat and still instead of floating and spinning.")
+                    .define("itemPhysics", true);
+            inspectItem = b
+                    .comment("Holding the inspect key (G by default) brings what is in your hand up to look at.")
+                    .define("inspectItem", true);
+            smoothDoors = b
+                    .comment("Doors and trapdoors swing open and shut instead of snapping.")
+                    .define("smoothDoors", true);
+            healthFeel = b
+                    .comment("At low health the edges of the screen darken red and the colour drains.")
+                    .define("healthFeel", true);
+            healthMuffle = b
+                    .comment("And the world goes quiet, as if your ears were ringing.")
+                    .define("healthMuffle", true);
             b.pop();
 
             b.comment("Motion. Everything here is cosmetic and can be turned off wholesale.").push("animations");
@@ -1474,6 +1515,42 @@ public final class MlumConfig {
 
     public static boolean themedCrafting() {
         return !clientReady() || CLIENT.themedCrafting.get();
+    }
+
+    public static boolean shoulderCamera() {
+        return clientReady() && CLIENT.shoulderCamera.get();
+    }
+
+    public static double shoulderOffset() {
+        return clientReady() ? CLIENT.shoulderOffset.get() : 0.65D;
+    }
+
+    public static double shoulderDistance() {
+        return clientReady() ? CLIENT.shoulderDistance.get() : 2.4D;
+    }
+
+    public static boolean aimMarker() {
+        return !clientReady() || CLIENT.aimMarker.get();
+    }
+
+    public static boolean itemPhysics() {
+        return clientReady() && CLIENT.itemPhysics.get();
+    }
+
+    public static boolean inspectItem() {
+        return !clientReady() || CLIENT.inspectItem.get();
+    }
+
+    public static boolean smoothDoors() {
+        return clientReady() && CLIENT.smoothDoors.get();
+    }
+
+    public static boolean healthFeel() {
+        return clientReady() && CLIENT.healthFeel.get();
+    }
+
+    public static boolean healthMuffle() {
+        return clientReady() && CLIENT.healthMuffle.get();
     }
 
     public static boolean sidebar() {

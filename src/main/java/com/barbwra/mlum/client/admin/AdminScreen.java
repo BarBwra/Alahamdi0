@@ -4,6 +4,7 @@ import com.barbwra.mlum.client.ui.Hits;
 import com.barbwra.mlum.client.ui.layout.Node;
 import com.barbwra.mlum.client.ui.mc.UiBoot;
 import com.barbwra.mlum.client.ui.mc.UiHost;
+import com.barbwra.mlum.client.ui.mc.UiSounds;
 import com.barbwra.mlum.client.ui.mc.UiPage;
 import com.barbwra.mlum.client.ui.mc.UiScreens;
 import com.barbwra.mlum.client.ui.mc.UiState;
@@ -146,6 +147,7 @@ public class AdminScreen extends Screen implements UiPage {
             m.focus = null;
             return true;
         }
+        UiSounds.click();
         String id = hit.id;
         if (id.startsWith("tab:") && hit.data instanceof Integer t) {
             UiScreens.go(-1, t);

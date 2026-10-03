@@ -1,7 +1,27 @@
 # MlumInventory — Minecraft 1.20.1 / Forge 47.4.10
 
-**v3.10.0** (network protocol 14) — see "What is new in 3.10.0" below, and `HANDOFF.md` §5.4 and §11b
+**v3.12.0** (network protocol 15) — see "What is new" below, and `HANDOFF.md` §5.4 and §11b
 for developers.
+
+---
+
+## What is new in 3.11.0 – 3.12.0
+
+| | |
+| --- | --- |
+| **Creative** | only an OP can be in creative. Staff ranks cannot grant it, and a non-OP found in creative is put back in survival |
+| **Staff ranks** | the OP makes ranks in game (K → ranks), any name and colour, and ticks what each may do. Any command on the server, from any mod, can be given as `cmd.<command>` |
+| **Admin panel (K)** | players (teleport, bring, open inventory, spectate), vanish, restore a death, warn / mute / jail / kick / ban, tickets, money and item alerts, scheduled restart and scheduled commands |
+| **Commands** | `/mlum staff ...` (OP), `/mlum ticket <text>` (anyone) |
+| **Screens** | ESC menu, title screen, loading screens and crafting table redrawn in the bag's look; side panel (J). Client config `[screens]` |
+| **F5** | over-the-shoulder camera, X swaps the shoulder, a mark shows where a gun is really aimed |
+| **Ground items** | lie flat and still instead of floating and spinning |
+| **Inspect** | hold H with a non-gun item to look at it (guns keep TACZ's own inspect) |
+| **Doors** | doors and trapdoors swing open and shut |
+| **Sounds** | hover, click, open and close sounds in every menu |
+| **Low health** | red edges, a heartbeat and muffled sound below 35% health |
+
+Each feel feature can be turned off in the client config `[feel]`.
 
 ---
 

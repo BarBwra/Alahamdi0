@@ -73,8 +73,12 @@ public final class UiHost {
         TextEngine.tick();
         Atlas.tick();
         long t = UiState.now();
+        if (lastFrameAt == 0L || t - lastFrameAt > 400L) {
+            UiSounds.open();
+        }
         lastFrameAt = t;
         closedSent = false;
+        closeSounded = false;
         UiState.frame(t);
         // tells the server a menu is up, for the guard that stops mobs jumping a player who is
         // reading one. Repeated rather than latched, so it expires on its own - see MenuGuard.
@@ -85,6 +89,10 @@ public final class UiHost {
         mouseY = mouse[1];
         hoverHit = HITS.at(mouseX, mouseY);
         hover = hoverHit == null ? null : hoverHit.id;
+        if (hover != null && !hover.equals(lastHover) && !isCell(hover)) {
+            UiSounds.hover();
+        }
+        lastHover = hover;
 
         Node root = Css.block().size(Px.W, Px.H);
         Node main = page.main(hover);
@@ -173,6 +181,10 @@ public final class UiHost {
          * everything" from "the player switched tabs" - a tab switch destroys one Screen and builds
          * another, so removed() fires either way, but the frames never stop.
          */
+        if (idle > 150L && !closeSounded) {
+            closeSounded = true;
+            UiSounds.close();
+        }
         if (idle > 800L && !closedSent) {
             closedSent = true;
             UiState.menuClosed();
@@ -185,5 +197,19 @@ public final class UiHost {
         }
     }
 
+    /** Item cells and text fields: sweeping across a grid of them should not chatter. */
+    private static boolean isCell(String id) {
+        for (String p : CELLS) {
+            if (id.startsWith(p)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static final String[] CELLS = {"bag:", "gun:", "qa:", "box:", "att:", "eq:", "input:", "drop:", "s:"};
+
     private static boolean closedSent;
+    private static boolean closeSounded = true;
+    private static String lastHover;
 }

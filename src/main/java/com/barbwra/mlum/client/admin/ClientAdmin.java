@@ -57,7 +57,7 @@ public final class ClientAdmin {
     static long restartAt;
 
     public static final KeyMapping OPEN = new KeyMapping("key.mlum.admin", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_O, "key.categories.mlum");
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.mlum");
 
     @Mod.EventBusSubscriber(modid = MlumInventory.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class Keys {

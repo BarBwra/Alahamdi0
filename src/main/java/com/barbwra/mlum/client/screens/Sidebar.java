@@ -21,7 +21,7 @@ import org.lwjgl.glfw.GLFW;
 
 /**
  * The side panel: the server's name, your money and faction, and how many are online, in a small
- * card on the right edge. H hides and shows it.
+ * card on the right edge. J hides and shows it.
  */
 @Mod.EventBusSubscriber(modid = MlumInventory.MODID, value = Dist.CLIENT)
 public final class Sidebar {
@@ -30,7 +30,7 @@ public final class Sidebar {
     }
 
     public static final KeyMapping TOGGLE = new KeyMapping("key.mlum.sidebar", KeyConflictContext.IN_GAME,
-            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_H, "key.categories.mlum");
+            InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_J, "key.categories.mlum");
 
     private static boolean hidden;
     private static final ScreenKit KIT = new ScreenKit();

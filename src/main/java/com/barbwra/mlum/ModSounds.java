@@ -26,6 +26,11 @@ public final class ModSounds {
     public static final RegistryObject<SoundEvent> UI_COIN = register("ui.coin");
     public static final RegistryObject<SoundEvent> UI_TICK_UP = register("ui.tick_up");
     public static final RegistryObject<SoundEvent> UI_TICK_DOWN = register("ui.tick_down");
+    public static final RegistryObject<SoundEvent> UI_HOVER = register("ui.hover");
+    public static final RegistryObject<SoundEvent> UI_CLICK = register("ui.click");
+    public static final RegistryObject<SoundEvent> UI_OPEN = register("ui.open");
+    public static final RegistryObject<SoundEvent> UI_CLOSE = register("ui.close");
+    public static final RegistryObject<SoundEvent> HEARTBEAT = register("feel.heartbeat");
 
     private static RegistryObject<SoundEvent> register(String name) {
         return SOUNDS.register(name, () -> SoundEvent.createVariableRangeEvent(MlumInventory.id(name)));

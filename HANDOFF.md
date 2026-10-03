@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.10.1**, network protocol **14**.
+Last updated at **mlum 3.12.0**, network protocol **15**.
 
 ---
 
@@ -542,6 +542,55 @@ firearm card only draws when the field HUD is off. `HudPen` is a thin wrapper ov
   zeroes its own motion), the selected slot is moved off the two gun slots, and TACZ shoot/reload
   events are cancelled while down (`DownedTacz`, registered only with TACZ present).
 
+### 3.11.0 — staff ranks and the admin panel (`admin/`, `client/admin/`)
+- **Only an OP can ever be in creative** (`CreativeLock`): the switch is cancelled for anyone else,
+  and every 2 s and at login a non-OP in creative is put back in survival. No rank can grant it.
+- **Ranks** (`StaffData`, saved as `mlum_staff`): OP-made, any name and colour, any number. A rank
+  holds a set of permission *nodes*; there is no fixed list. `Perms.ALL` is just the labelled nodes
+  the panel offers as toggles - `panel`, `players.teleport|bring|inventory|inventory.edit|spectate`,
+  `vanish`, `restore`, `punish.warn|mute|jail|kick|ban|history`, `tickets`, `alerts`, `restart`,
+  `schedule`. `Perms.covers` handles prefixes (`players` covers `players.*`) and `*`.
+- **Any command on the server can be granted**: `CommandGate` wraps every brigadier node's
+  requirement at `RegisterCommandsEvent` LOWEST by reflection, so a node passes if it passed before
+  *or* the player's rank holds `cmd.<path>` (e.g. `cmd.tp`, `cmd.time.set`, `cmd.give`, or `cmd.*`).
+  This covers other mods' commands too. `Staff.refresh` resends the command tree after any change.
+- Panel: K (`key.mlum.admin`). Tabs players / ranks (OP only) / punishments / tickets / alerts /
+  schedule. Everything goes over `C2SAdmin(action, tag)` / `S2CAdmin(kind, tag)`; each action
+  re-checks its node on the server (`AdminActions`).
+- Tools: teleport/bring, open a player's inventory (look, or edit with `.edit`; reuses the downed
+  loot view in `inspect` mode), spectate, vanish (`Vanish`: invisible, unlisted from Tab for those
+  without `vanish`, mobs ignore), restore one of the last 10 deaths (`DeathArchive`, `mlum_deaths`),
+  warn / mute / jail / kick / ban with history (`Punish`, `mlum_punish`), tickets (`/mlum ticket`,
+  `mlum_tickets`), money/item-value alerts (`EconomyWatch`, thresholds in server config `[admin]`),
+  scheduled restart (`Restart`, `restartTimes` HH:mm list; **the server must be started by a loop
+  script** for it to come back), scheduled console commands (`Schedule`, `mlum_schedule`).
+- Commands: `/mlum staff ranks|rank create/delete/color/add/remove|assign|unassign|check`.
+
+### 3.11.0 — themed screens (`client/screens/`)
+`ScreenSwap` replaces the ESC menu, the title screen and the crafting table screen in
+`ScreenEvent.Opening`, and paints over connecting / loading / saving screens in `Render.Pre`.
+`Sidebar` is a small card on the right (J). Client config `[screens]`: each screen on/off,
+`serverName`, `serverAddress` (title's big button joins it directly), `newsUrl` (a raw text file,
+one line per item), `news`, `tips`.
+
+### 3.12.0 — feel (`client/feel/`, client config `[feel]`)
+- **Shoulder camera** (`ShoulderCamera`): in F5-back the camera is moved to a shoulder inside
+  `ViewportEvent.ComputeCameraAngles` via `Camera.setPosition` (SRG `m_90581_`, reflection; disables
+  itself if that fails), wall-clipped from eight corners. X swaps sides. An aim mark is drawn where
+  the eye ray lands (where TACZ bullets go): a ring with a gun, a dot otherwise, red on an entity.
+- **Item physics** (`FlatItemRenderer`, replaces the ITEM entity renderer): items lie flat at a
+  per-entity angle, blocks sit on the floor, only falling items tumble. Rendering only.
+- **Inspect** (`InspectItem`): with TACZ installed it reads TACZ's own inspect key (H) and acts only
+  when the hand is not a gun; without TACZ it registers `key.mlum.inspect` on H.
+- **Smooth doors** (`SmoothDoors`): doors/trapdoors within 12 blocks are tracked; on a change the
+  client-side block becomes air for 230 ms while the closed model is drawn rotating about the hinge
+  (the overlap of the closed and open shapes). A server resend of the same state is re-hidden; any
+  other state ends the swing. Flooded trapdoors are skipped.
+- **UI sounds**: `ui.hover/click/open/close` (synthesised oggs) from `UiHost` and `ScreenKit`.
+- **Health feel** (`HealthFeel`): under 35% health a red vignette (vanilla texture, darkening blend),
+  heartbeat (`feel.heartbeat`) and world sounds muffled up to 60% (`PlaySoundEvent` wrapper).
+- Keys moved off TACZ defaults: admin panel O→K, side panel H→J (TACZ uses H inspect, O interact).
+
 ## 12. Open items
 
 | # | Item | State |
@@ -556,7 +605,7 @@ firearm card only draws when the field HUD is off. `HudPen` is a thin wrapper ov
 | 8 | Real defibrillator | planned: TACZ-style item, charge by rubbing the paddles, release on the body; batteries 100 / 250, 50 per revive, R swaps a random carried battery |
 | 9 | Batteries in the bag | planned: stack 1, show `c/max` instead of a count, item background filled white by charge (`ChargeTag` already exists; the belt already draws it) |
 | 10 | Real oxygen kit | planned: currently the config placeholder item |
-| 11 | **3.9.0 untested** | written without a compile in the cloud session (Forge maven blocked). Build locally and send any errors |
+| 11 | **3.9.0 – 3.12.0 untested** | written without a compile in the cloud session (Forge maven blocked). Build locally and send any errors |
 
 **Nothing from 3.5.0 onward has been tested in game by me.** It compiles, the jar is verified clean,
 and the mixin applies without error in the log — that is all. Several things shipped broken and were

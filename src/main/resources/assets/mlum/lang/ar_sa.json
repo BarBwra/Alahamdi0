@@ -67,5 +67,7 @@
     "key.mlum.interact": "Downed: loot / revive, or hold to give up",
     "key.mlum.admin": "Admin panel",
     "key.mlum.sidebar": "Show / hide the side panel",
+    "key.mlum.shoulder": "Swap shoulder (F5 camera)",
+    "key.mlum.inspect": "Inspect held item",
     "entity.mlum.downed_dummy": "Practice body"
 }

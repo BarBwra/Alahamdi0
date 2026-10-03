@@ -28,12 +28,40 @@ public final class UiSounds {
         play(up ? ModSounds.UI_TICK_UP : ModSounds.UI_TICK_DOWN);
     }
 
+    private static long lastHover;
+
+    /** Moving onto a new button. Quiet, and never more than one every 45ms so a sweep is not a buzz. */
+    public static void hover() {
+        long now = System.currentTimeMillis();
+        if (now - lastHover < 45L) {
+            return;
+        }
+        lastHover = now;
+        play(ModSounds.UI_HOVER, 0.35F, 1.0F);
+    }
+
+    public static void click() {
+        play(ModSounds.UI_CLICK, 0.8F, 0.95F + (float) Math.random() * 0.1F);
+    }
+
+    public static void open() {
+        play(ModSounds.UI_OPEN, 0.6F, 1.0F);
+    }
+
+    public static void close() {
+        play(ModSounds.UI_CLOSE, 0.55F, 1.0F);
+    }
+
     private static void play(RegistryObject<SoundEvent> sound) {
+        play(sound, 1.0F, 1.0F);
+    }
+
+    private static void play(RegistryObject<SoundEvent> sound, float volume, float pitch) {
         if (!MlumConfig.uiSounds() || !sound.isPresent()) {
             return;
         }
         try {
-            Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(sound.get(), 1.0F, 1.0F));
+            Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(sound.get(), pitch, volume));
         } catch (Throwable ignored) {
             // a sound is never worth an exception
         }
