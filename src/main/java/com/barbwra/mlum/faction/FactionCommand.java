@@ -56,6 +56,10 @@ public final class FactionCommand {
                 .then(Commands.literal("demote")
                         .then(Commands.argument("player", EntityArgument.player())
                                 .executes(ctx -> shift(ctx, false))))
+                .then(Commands.literal("diplomacy").executes(ctx -> {
+                    Diplomacy.open(ctx.getSource().getPlayerOrException());
+                    return 1;
+                }))
                 .then(Commands.literal("info").executes(FactionCommand::info))
                 .then(Commands.literal("top").executes(FactionCommand::top))
                 .then(Commands.literal("points")

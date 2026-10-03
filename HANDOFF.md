@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.14.1**, network protocol **17**.
+Last updated at **mlum 3.15.0**, network protocol **18**.
 
 ---
 
@@ -608,6 +608,21 @@ page turn - the menu reopening within 1.5 s of closing - only spins the dial (`u
   you ride or look at. The vehicle is drawn only in the buyer's screen
   (`EntityPreview.showroom`), and other clients skip rendering anyone browsing (`browsing` ids).
   Packets `S2CDealer` / `C2SDealer`, protocol 16.
+
+### 3.15.0 — faction diplomacy (`faction/Diplomacy`, `DiplomacyData`, `client/diplomacy/`)
+Opened from the faction tab's "الدبلوماسية" button or `/mlum faction diplomacy`; data over
+`S2CDiplomacy` / `C2SDiplomacy` (protocol 18), saved in `mlum_diplomacy`.
+- **Alliances**: level 3 for one, level 7 for two. Leader requests (kept 10 min, in memory),
+  the other leader accepts. Allies cannot damage each other (`LivingAttackEvent` HIGH) and get each
+  other's distress calls (`DownedService.distress`). Breaking puts both on a 24 h cooldown.
+- **Wars**: leader, level 4, 48 h, one declared war at a time, 7-day cooldown per pair, server-wide
+  announcement and horn. Each kill moves 1% of the victim faction's bank to the killer's, capped at
+  10% of the bank it had when the war began.
+- **Bounties**: leader/deputy, from the bank in advance, 500 to level × 5,000, one per faction,
+  7 days then refunded. The killer is paid into their wallet unless they are in the target's
+  faction or allied with it.
+- Kills are credited to the last player to hurt the victim within 7 minutes (`LAST_HIT_BY`), so a
+  bleed-out after a downing counts.
 
 ### 3.14.1
 - Ghillie counts TACZ's crawl (forced swimming pose on land) as low, like a crouch

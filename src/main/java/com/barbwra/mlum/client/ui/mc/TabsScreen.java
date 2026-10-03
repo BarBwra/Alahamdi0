@@ -755,6 +755,7 @@ public class TabsScreen extends Screen implements UiPage {
                 ClientFactionData.clearRoster();
                 ModNetwork.sendFactionAction(C2SFactionAction.Action.ROSTER, "");
             }
+            case "diplomacy" -> com.barbwra.mlum.client.diplomacy.ClientDiplomacy.ask();
             case "open-vault" -> {
                 UiState.startFx(true, true);
                 ModNetwork.sendFactionAction(C2SFactionAction.Action.OPEN_VAULT, "");
