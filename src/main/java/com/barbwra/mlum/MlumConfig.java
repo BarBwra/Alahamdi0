@@ -115,6 +115,9 @@ public final class MlumConfig {
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> moneyPacks;
         public final ForgeConfigSpec.ConfigValue<String> storeNote;
         public final ForgeConfigSpec.IntValue configVersion;
+        public final ForgeConfigSpec.LongValue moneyAlert;
+        public final ForgeConfigSpec.LongValue itemValueAlert;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> restartTimes;
         public final ForgeConfigSpec.BooleanValue camouflage;
         public final ForgeConfigSpec.IntValue hideSeconds;
         public final ForgeConfigSpec.BooleanValue requireCover;
@@ -518,6 +521,22 @@ public final class MlumConfig {
             oxygenSeconds = b
                     .comment("How long the oxygen kit has to be held on a downed player.")
                     .defineInRange("oxygenSeconds", 5, 1, 60);
+            b.pop();
+
+            b.comment("Admin (الإدارة): ranks and permissions live in the world save and are made in game",
+                    "(/mlum staff, or the admin panel). These are the settings that are not.").push("admin");
+            moneyAlert = b
+                    .comment("Staff are alerted when a player's money grows by this much within one minute.")
+                    .defineInRange("moneyAlert", 500_000L, 1L, Long.MAX_VALUE);
+            itemValueAlert = b
+                    .comment("Staff are alerted when what a player carries is worth this much more at the",
+                            "trader than it was a minute before - the usual sign of a duplicated item.")
+                    .defineInRange("itemValueAlert", 500_000L, 1L, Long.MAX_VALUE);
+            restartTimes = b
+                    .comment("Daily restart times on the server's clock, as HH:mm, e.g. [\"05:00\", \"17:00\"].",
+                            "Players are warned 10, 5 and 1 minute before. The server is saved and stopped;",
+                            "whatever starts it (the host panel or a looping start script) brings it back.")
+                    .defineList("restartTimes", List.of(), entry -> entry instanceof String);
             b.pop();
 
             b.comment("Camouflage (التمويه): a full ghillie suit hides its wearer completely - body, armour,",
@@ -1406,6 +1425,18 @@ public final class MlumConfig {
     private static int fieldAccent = 0xFFA8C66C;
 
     /** The field HUD's accent as opaque ARGB, re-parsed only when the config line changes. */
+    public static long moneyAlert() {
+        return serverReady() ? SERVER.moneyAlert.get() : 500_000L;
+    }
+
+    public static long itemValueAlert() {
+        return serverReady() ? SERVER.itemValueAlert.get() : 500_000L;
+    }
+
+    public static List<? extends String> restartTimes() {
+        return serverReady() ? SERVER.restartTimes.get() : List.of();
+    }
+
     public static boolean camouflage() {
         return !serverReady() || SERVER.camouflage.get();
     }

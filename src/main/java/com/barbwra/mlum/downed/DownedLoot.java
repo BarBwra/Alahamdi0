@@ -38,9 +38,28 @@ public final class DownedLoot implements Container {
 
     private final Entity body;
     private final SimpleContainer spare = new SimpleContainer(SIZE - 42);
+    /** Opened from the admin panel rather than over a downed body: no range, no downed check. */
+    private final boolean inspect;
+    /** Inspecting with permission to change things. A look-only inspection refuses every change. */
+    private final boolean editable;
 
     public DownedLoot(Entity body) {
+        this(body, false, true);
+    }
+
+    /** The admin panel's view of any online player's belongings. */
+    public static DownedLoot inspect(Entity body, boolean editable) {
+        return new DownedLoot(body, true, editable);
+    }
+
+    private DownedLoot(Entity body, boolean inspect, boolean editable) {
         this.body = body;
+        this.inspect = inspect;
+        this.editable = editable;
+    }
+
+    private boolean locked(int index) {
+        return inspect && !editable && index < 42;
     }
 
     /* ------------------------------------------------------------------ where a cell points */
@@ -114,6 +133,9 @@ public final class DownedLoot implements Container {
 
     @Override
     public ItemStack removeItem(int index, int count) {
+        if (locked(index)) {
+            return ItemStack.EMPTY;
+        }
         if (index >= 42) {
             return spare.removeItem(index - 42, count);
         }
@@ -129,6 +151,9 @@ public final class DownedLoot implements Container {
 
     @Override
     public ItemStack removeItemNoUpdate(int index) {
+        if (locked(index)) {
+            return ItemStack.EMPTY;
+        }
         if (index >= 42) {
             return spare.removeItemNoUpdate(index - 42);
         }
@@ -139,6 +164,9 @@ public final class DownedLoot implements Container {
 
     @Override
     public void setItem(int index, ItemStack stack) {
+        if (locked(index)) {
+            return;
+        }
         if (index >= 42) {
             spare.setItem(index - 42, stack);
             return;
@@ -157,6 +185,9 @@ public final class DownedLoot implements Container {
     /** The body is still down, still here, and the looter is still beside it and on their feet. */
     @Override
     public boolean stillValid(Player looter) {
+        if (inspect) {
+            return !body.isRemoved() && (!(body instanceof net.minecraft.server.level.ServerPlayer p) || !p.hasDisconnected());
+        }
         if (body.isRemoved() || !body.isAlive() || body.level() != looter.level()) {
             return false;
         }
@@ -176,6 +207,11 @@ public final class DownedLoot implements Container {
                 looter.drop(left, false);
             }
         }
+    }
+
+    @Override
+    public boolean canPlaceItem(int index, ItemStack stack) {
+        return !locked(index);
     }
 
     @Override

@@ -75,8 +75,10 @@ public final class ModNetwork {
      * <p>13 -&gt; 14: dragging a downed body was taken out, and {@code S2CDowned} lost its
      * "being dragged" flag with it. The loot screen of a downed body also carries the body's
      * entity id after the vault bytes.</p>
+     *
+     * <p>14 -&gt; 15: the admin system - {@code S2CAdmin} and {@code C2SAdmin}.</p>
      */
-    private static final String PROTOCOL = "14";
+    private static final String PROTOCOL = "15";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             MlumInventory.id("main"),
@@ -276,6 +278,17 @@ public final class ModNetwork {
                 .encoder(S2CDistress::encode)
                 .decoder(S2CDistress::decode)
                 .consumerMainThread(S2CDistress::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CAdmin.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CAdmin::encode)
+                .decoder(S2CAdmin::decode)
+                .consumerMainThread(S2CAdmin::handle)
+                .add();
+        CHANNEL.messageBuilder(C2SAdmin.class, nextId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(C2SAdmin::encode)
+                .decoder(C2SAdmin::decode)
+                .consumerMainThread(C2SAdmin::handle)
                 .add();
 
     }
