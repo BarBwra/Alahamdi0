@@ -20,42 +20,53 @@ import net.minecraftforge.registries.ForgeRegistries;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 
 /**
  * The showroom.
  *
  * <pre>
- *  ┌──────────────────────────────────────────────┬──────────────────┐
- *  │ MLUM MOTORS                                  │ المركبات المعروضة │
- *  │                                              │ رصيدك  · مستواك   │
- *  │               ( the vehicle, turning         │ [الكل][قسم][قسم]  │
- *  │                 on a lit turntable )         │ ┃ name     $price │
- *  │                                              │   level · limited │
- *  │  ┌ card: name, section, price, what it needs, buy ┐            │
- *  └──────────────────────────────────────────────┴──────────────────┘
+ *  ┌ MLUM MOTORS      [ الكل 5 ]  [ مدرعات 2 ]  [ طيران 3 ]        $balance · level ┐
+ *  │                                                                                │
+ *  │        ( the vehicle, turning on a lit turntable )        │ section             │
+ *  │                                                           │ NAME                │
+ *  │                                                           │ needs · kind        │
+ *  │                                                           │ $price   [ شراء ]   │
+ *  ├────────────────────────────────────────────────────────────────────────────────┤
+ *  │  ‹  [card][card][card][card][card][card]  ›   each card a live model + price    │
+ *  └────────────────────────────────────────────────────────────────────────────────┘
  * </pre>
  *
- * <p>The vehicle is the real model, drawn in this screen only - the buyer can turn it with the mouse
- * and zoom with the wheel, but it is not in the world, so no one else sees it and it cannot be
- * driven off. Buying asks for a second click within three seconds.</p>
+ * <p><b>Browsing</b> is a row of cards, each with the vehicle's own model turning in it, its price,
+ * and a ribbon for what matters: new this week, already yours, or a level you have not reached.
+ * The sections are tabs along the top with how many each holds.</p>
  *
- * <p>Anyone allowed to edit gets add / edit / delete buttons in the same screen; the form takes the
- * place of the list, so the vehicle being entered is previewed live behind it as its id is typed.</p>
+ * <p><b>Buying</b> is a dialog in the middle of the screen: the price, the balance now and after,
+ * confirm. When the server says it went through the balance runs down to its new value, coins fall,
+ * and the till rings.</p>
+ *
+ * <p>The vehicle is drawn in this screen only - it is not in the world, nobody else sees it, and it
+ * cannot be driven. Editors get an edit switch in the corner that shows the add, edit, move and
+ * delete controls; forms take the information column, so the vehicle being entered is previewed
+ * live as its id is typed.</p>
  */
 @OnlyIn(Dist.CLIENT)
 public class DealerScreen extends Screen {
 
     private static final int CASH = 0xFF8FD16A;
     private static final int CASH_DIM = 0xFF5E7A4C;
+    private static final int GOLD = 0xFFF0C04B;
 
     private final ScreenKit kit = new ScreenKit();
     private final List<float[]> zones = new ArrayList<>();
     private final List<String> zoneIds = new ArrayList<>();
+    private String lastZone;
 
     private int filter;
     private int selected = -1;
-    private int scroll;
+    private int carousel;
     private int seen = -1;
+    private boolean editing;
 
     private float yaw = 215.0F;
     private float shownYaw = 215.0F;
@@ -63,12 +74,23 @@ public class DealerScreen extends Screen {
     private boolean dragging;
     private long lastTouch;
     private long lastFrame;
+    private long selectedAt;
 
-    private int confirmBuy = -1;
-    private long confirmAt;
+    /* the purchase dialog */
+    private static final int BUY_NONE = 0;
+    private static final int BUY_ASK = 1;
+    private static final int BUY_WAIT = 2;
+    private static final int BUY_DONE = 3;
+    private static final int BUY_FAIL = 4;
+    private int buyState = BUY_NONE;
+    private ClientDealer.Listing buying;
+    private long balanceBefore;
+    private long buyAt;
+    private String buyMessage = "";
+    private final float[][] coins = new float[30][4];
+
     private int confirmDelete = -1;
     private long deleteAt;
-
     private String toast;
     private boolean toastOk;
     private long toastAt;
@@ -76,12 +98,10 @@ public class DealerScreen extends Screen {
     private Form form;
     private Field focus;
 
-    /* geometry of the last frame, for clicks and the wheel */
-    private float listX;
-    private float listTop;
-    private float listBottom;
+    /* geometry of the last frame */
     private float stageX1;
-    private int rowsShown;
+    private float carY;
+    private int carSlots;
 
     public DealerScreen() {
         super(Component.literal("Dealership"));
@@ -110,6 +130,16 @@ public class DealerScreen extends Screen {
         return out;
     }
 
+    private int countIn(int category) {
+        int n = 0;
+        for (ClientDealer.Listing l : ClientDealer.LISTINGS) {
+            if (category == 0 || l.category() == category) {
+                n++;
+            }
+        }
+        return n;
+    }
+
     private ClientDealer.Listing listing(int id) {
         for (ClientDealer.Listing l : ClientDealer.LISTINGS) {
             if (l.id() == id) {
@@ -124,21 +154,43 @@ public class DealerScreen extends Screen {
             filter = 0;
         }
         List<ClientDealer.Listing> v = visible();
-        boolean present = false;
         for (ClientDealer.Listing l : v) {
-            present |= l.id() == selected;
+            if (l.id() == selected) {
+                return;
+            }
         }
-        if (!present) {
-            selected = v.isEmpty() ? -1 : v.get(0).id();
+        select(v.isEmpty() ? -1 : v.get(0).id());
+    }
+
+    private void select(int id) {
+        if (id != selected) {
+            selected = id;
+            selectedAt = System.currentTimeMillis();
+            yaw = 215.0F;
+            shownYaw = 160.0F;
         }
     }
 
-    private boolean owns(ClientDealer.Listing l) {
+    private boolean ownsDeed(ClientDealer.Listing l) {
         ClientDealer.Owned o = ClientDealer.OWNED.get(l.entity());
         return o != null && !o.consumable() && !l.limited();
     }
 
-    private static String money(long v) {
+    /** Why this cannot be bought right now, or null when it can. */
+    private String blocked(ClientDealer.Listing l) {
+        if (ownsDeed(l)) {
+            return "تملكها";
+        }
+        if (ClientDealer.level < l.level()) {
+            return "تحتاج مستوى " + l.level();
+        }
+        if (ClientDealer.balance < l.price()) {
+            return "رصيدك ما يكفي";
+        }
+        return null;
+    }
+
+    static String money(long v) {
         return "$" + String.format(Locale.ROOT, "%,d", v);
     }
 
@@ -152,10 +204,30 @@ public class DealerScreen extends Screen {
         return false;
     }
 
+    /** The server's answer to a purchase or an edit. */
     public void result(boolean ok, String message) {
+        long now = System.currentTimeMillis();
+        if (buyState == BUY_WAIT) {
+            buyState = ok ? BUY_DONE : BUY_FAIL;
+            buyMessage = message;
+            buyAt = now;
+            if (ok) {
+                UiSounds.purchase();
+                Random r = new Random();
+                for (float[] c : coins) {
+                    c[0] = (r.nextFloat() - 0.5F) * 40.0F;
+                    c[1] = -40.0F - r.nextFloat() * 60.0F;
+                    c[2] = (r.nextFloat() - 0.5F) * 2.0F;
+                    c[3] = r.nextFloat() * 0.25F;
+                }
+            } else {
+                UiSounds.tick(false);
+            }
+            return;
+        }
         toast = message;
         toastOk = ok;
-        toastAt = System.currentTimeMillis();
+        toastAt = now;
         if (ok) {
             UiSounds.coin();
             form = null;
@@ -167,6 +239,9 @@ public class DealerScreen extends Screen {
 
     /* ================================================================== frame */
 
+    private record Card(ClientDealer.Listing listing, float x, float y, float w, float h) {
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (seen != ClientDealer.version) {
@@ -177,28 +252,36 @@ public class DealerScreen extends Screen {
         float dt = lastFrame == 0L ? 0.0F : Math.min(0.1F, (now - lastFrame) / 1000.0F);
         lastFrame = now;
         if (!dragging && now - lastTouch > 2500L) {
-            yaw += dt * 14.0F;
+            yaw += dt * 12.0F;
         }
-        shownYaw += (yaw - shownYaw) * Math.min(1.0F, dt * 10.0F);
+        shownYaw += (yaw - shownYaw) * Math.min(1.0F, dt * 8.0F);
 
         zones.clear();
         zoneIds.clear();
         float pad = 8.0F;
-        float listW = Math.min(196.0F, width * 0.38F);
-        listX = width - pad - listW;
-        stageX1 = listX - pad;
-        float stageX0 = pad;
-        float stageCx = (stageX0 + stageX1) / 2.0F;
-        float cardH = 64.0F;
-        float cardY = height - pad - cardH;
-        float floorY = cardY - 30.0F;
-        float stageTop = pad + 30.0F;
-        float stageW = stageX1 - stageX0;
-        float size = Math.min(stageW * 0.62F, (floorY - stageTop) * 1.25F) * zoom;
+        float topH = 24.0F;
+        float carH = 72.0F;
+        carY = height - pad - carH;
+        float stageY0 = topH + 6.0F;
+        float stageY1 = carY - 6.0F;
+        float infoW = Math.min(150.0F, width * 0.3F);
+        float infoX = width - pad - infoW;
+        stageX1 = infoX - 6.0F;
+        float stageCx = (pad + stageX1) / 2.0F;
+        float floorY = stageY1 - 16.0F;
+        float size = Math.min((stageX1 - pad) * 0.66F, (floorY - stageY0) * 1.35F) * zoom;
+        // a new selection rises onto the turntable
+        float rise = Math.min(1.0F, (now - selectedAt) / 350.0F);
+        rise = 1.0F - (1.0F - rise) * (1.0F - rise);
+
+        List<Card> cards = layoutCards(pad, carH);
 
         kit.begin(g);
         try {
-            backdrop(kit.pen, stageCx, floorY, stageW, stageX1);
+            backdrop(kit.pen, stageCx, floorY, stageX1 - pad, stageX1);
+            for (Card c : cards) {
+                cardBack(kit.pen, c, mouseX, mouseY);
+            }
         } finally {
             kit.end();
         }
@@ -209,61 +292,69 @@ public class DealerScreen extends Screen {
             entity = sel.entity();
         }
         boolean drawn = entity != null && !entity.isEmpty() && ResourceLocation.tryParse(entity) != null
-                && EntityPreview.showroom(g, entity, stageCx, floorY, size, shownYaw, 14.0F);
+                && EntityPreview.showroom(g, entity, stageCx, floorY + (1.0F - rise) * 12.0F, size * (0.9F + 0.1F * rise),
+                shownYaw, 14.0F);
+        for (Card c : cards) {
+            g.enableScissor((int) c.x() + 1, (int) c.y() + 1, (int) (c.x() + c.w()) - 1, (int) (c.y() + 44));
+            EntityPreview.showroom(g, c.listing().entity(), c.x() + c.w() / 2.0F, c.y() + 38.0F, c.w() * 0.62F,
+                    c.listing().id() == selected ? shownYaw : 215.0F, 16.0F);
+            g.disableScissor();
+        }
 
         kit.begin(g);
         try {
             HudPen pen = kit.pen;
-            // the house name, top left
-            Shaped mark = pen.pixel("MLUM MOTORS", 13.0F, 700);
-            pen.glow(mark, stageX0 + 4, pad + 14, HudPen.LEFT, 2.5F, ScreenKit.alpha(ScreenKit.AMBER, 0.35F));
-            pen.text(mark, stageX0 + 4, pad + 14, HudPen.LEFT, ScreenKit.BONE);
-            pen.text(pen.kufi("معرض المركبات", 5.5F, 600), stageX0 + 4, pad + 24, HudPen.LEFT, ScreenKit.MUTED);
-
+            topBar(pen, pad, topH, mouseX, mouseY);
             if (!drawn) {
                 String why = entity == null || entity.isEmpty()
-                        ? (ClientDealer.LISTINGS.isEmpty() ? "المعرض فاضي حالياً" : "اختر مركبة من القائمة")
+                        ? (ClientDealer.LISTINGS.isEmpty() ? "المعرض فاضي حالياً" : "اختر مركبة من تحت")
                         : "ما فيه معاينة لهذي المركبة";
-                pen.text(pen.kufi(why, 7.0F, 600), stageCx, (stageTop + floorY) / 2.0F, HudPen.CENTER, ScreenKit.FAINT);
+                pen.text(pen.kufi(why, 7.0F, 600), stageCx, (stageY0 + floorY) / 2.0F, HudPen.CENTER, ScreenKit.FAINT);
             } else {
-                pen.text(pen.kufi("اسحب بالماوس عشان تلف المركبة · العجلة للتقريب", 4.6F, 600), stageCx, cardY - 6.0F,
-                        HudPen.CENTER, ScreenKit.alpha(ScreenKit.FAINT, 0.9F));
+                pen.text(pen.kufi("اسحب بالماوس عشان تلفها · العجلة للتقريب", 4.4F, 600), stageCx, stageY1 - 2.0F,
+                        HudPen.CENTER, ScreenKit.alpha(ScreenKit.FAINT, 0.85F));
             }
-
             if (form != null) {
-                drawForm(pen, mouseX, mouseY, pad, listW, now);
+                drawForm(pen, infoX, stageY0, infoW, stageY1 - stageY0, mouseX, mouseY, now);
             } else {
-                drawList(pen, mouseX, mouseY, pad, listW);
-                drawCard(pen, sel, stageX0, cardY, stageW, cardH, mouseX, mouseY, now);
+                info(pen, sel, infoX, stageY0, infoW, stageY1 - stageY0, mouseX, mouseY, now);
             }
-            drawToast(pen, stageCx, stageTop + 4, now);
+            carouselFront(pen, cards, pad, carH, mouseX, mouseY, now);
+            drawToast(pen, stageCx, stageY0 + 4, now);
+            if (buyState != BUY_NONE) {
+                buyDialog(pen, mouseX, mouseY, now);
+            }
         } finally {
             kit.end();
         }
+        hoverSound(mouseX, mouseY);
+    }
+
+    private void hoverSound(int mx, int my) {
+        String z = zoneAt(mx, my);
+        if (z != null && !z.equals(lastZone) && z.startsWith("card:")) {
+            UiSounds.hover();
+        }
+        lastZone = z;
     }
 
     /* ================================================================== the room */
 
     private void backdrop(HudPen pen, float cx, float floorY, float stageW, float stageX1) {
         pen.vgrad(0, 0, width, height, 0xFF13160F, 0xFF040504);
-        // the back wall: tall panels, lit faintly from above
         for (float x = 4; x < stageX1; x += 34.0F) {
-            pen.vgrad(x, 0, 0.5F, floorY - 14, 0x14FFFFFF, 0x02FFFFFF);
+            pen.vgrad(x, 24, 0.5F, floorY - 38, 0x12FFFFFF, 0x02FFFFFF);
         }
-        // where the wall meets the floor
-        pen.vgrad(0, floorY - 22, stageX1 + 8, 22, 0x00000000, 0x55000000);
-        pen.rect(0, floorY - 14, stageX1 + 8, 0.5F, 0x16FFFFFF);
-        // the spotlight: a cone of light widening down onto the turntable
-        float top = 0.0F;
+        pen.vgrad(0, floorY - 22, width, 22, 0x00000000, 0x55000000);
+        pen.rect(0, floorY - 14, width, 0.5F, 0x16FFFFFF);
         float steps = 40.0F;
+        float top = 24.0F;
         float span = floorY - top;
         for (int i = 0; i < steps; i++) {
             float t = i / steps;
-            float y = top + span * t;
             float w = 14.0F + stageW * 0.62F * t;
-            pen.rect(cx - w / 2.0F, y, w, span / steps + 0.5F, ScreenKit.alpha(0xFFF4E8CC, 0.022F + 0.03F * t));
+            pen.rect(cx - w / 2.0F, top + span * t, w, span / steps + 0.5F, ScreenKit.alpha(0xFFF4E8CC, 0.02F + 0.03F * t));
         }
-        // the turntable: a lit pool, the plate, its rim, and marks turning with the vehicle
         float rx = stageW * 0.36F;
         float ry = rx * 0.17F;
         for (int k = 0; k < 6; k++) {
@@ -279,9 +370,7 @@ public class DealerScreen extends Screen {
             float py = floorY + 0.5F + (float) Math.sin(a) * ry * 0.84F;
             pen.rect(px - 0.5F, py - 0.25F, i % 3 == 0 ? 1.5F : 0.75F, 0.5F, ScreenKit.alpha(0xFFECE6D4, i % 3 == 0 ? 0.3F : 0.14F));
         }
-        // a soft vignette at the edges
-        pen.vgrad(0, 0, width, 30, 0x66000000, 0x00000000);
-        pen.vgrad(0, height - 40, width, 40, 0x00000000, 0x88000000);
+        pen.vgrad(0, carY - 10, width, height - carY + 10, 0x00000000, 0xC0000000);
     }
 
     private static void ellipse(HudPen pen, float cx, float cy, float rx, float ry, int argb) {
@@ -306,179 +395,336 @@ public class DealerScreen extends Screen {
         }
     }
 
-    /* ================================================================== the list */
+    /* ================================================================== the top bar */
 
-    private void zone(String id, float x, float y, float w, float h) {
-        zones.add(new float[]{x, y, x + w, y + h});
-        zoneIds.add(id);
-    }
+    private void topBar(HudPen pen, float pad, float h, int mx, int my) {
+        pen.vgrad(0, 0, width, h, 0xF0040604, 0xC0040604);
+        pen.rect(0, h, width, 0.5F, ScreenKit.LINE);
+        Shaped mark = pen.pixel("MLUM MOTORS", 11.0F, 700);
+        pen.glow(mark, pad + 2, 16.0F, HudPen.LEFT, 2.0F, ScreenKit.alpha(ScreenKit.AMBER, 0.35F));
+        pen.text(mark, pad + 2, 16.0F, HudPen.LEFT, ScreenKit.BONE);
 
-    private String zoneAt(double mx, double my) {
-        for (int i = zones.size() - 1; i >= 0; i--) {
-            float[] r = zones.get(i);
-            if (mx >= r[0] && mx < r[2] && my >= r[1] && my < r[3]) {
-                return zoneIds.get(i);
-            }
-        }
-        return null;
-    }
-
-    private void drawList(HudPen pen, int mx, int my, float pad, float listW) {
-        float x = listX;
-        float y = pad;
-        float h = height - pad * 2;
-        kit.panel(x, y, listW, h);
-        float right = x + listW - 7;
-        kit.heading("المركبات المعروضة", right, y + 13);
-
-        // what the buyer brings: balance on the right, level on the left
-        float iy = y + 25;
-        Shaped label = pen.kufi("رصيدك", 4.8F, 600);
-        pen.text(label, right, iy, HudPen.RIGHT, ScreenKit.MUTED);
-        pen.text(pen.pixel(money(ClientDealer.balance), 8.0F, 700), right - pen.width(label) - 4, iy + 0.5F, HudPen.RIGHT, CASH);
-        Shaped lv = pen.pixel(String.valueOf(ClientDealer.level), 8.0F, 700);
-        pen.text(lv, x + 7, iy + 0.5F, HudPen.LEFT, ScreenKit.BONE);
-        pen.text(pen.kufi("مستواك", 4.8F, 600), x + 7 + pen.width(lv) + 3, iy, HudPen.LEFT, ScreenKit.MUTED);
-        pen.rect(x + 6, iy + 4, listW - 12, 0.5F, ScreenKit.LINE_SOFT);
-
-        float cy = iy + 8;
-        if (ClientDealer.edit) {
-            float bw = (listW - 14 - 8) / 3.0F;
-            kit.button("add.veh", "+ مركبة", right - bw, cy, bw, 10, ScreenKit.GHOST, mx, my);
-            kit.button("add.cat", "+ قسم", right - bw * 2 - 4, cy, bw, 10, ScreenKit.GHOST, mx, my);
-            if (filter != 0) {
-                kit.button("edit.cat", "تعديل القسم", right - bw * 3 - 8, cy, bw, 10, ScreenKit.GHOST, mx, my);
-            }
-            cy += 14;
-        }
-
-        // the sections, right to left, wrapping
-        float cx = right;
-        float chipH = 11.0F;
+        // the sections, centred: name, count, an underline on the one shown
         List<ClientDealer.Category> cats = new ArrayList<>();
         cats.add(new ClientDealer.Category(0, "الكل"));
         cats.addAll(ClientDealer.CATEGORIES);
-        for (ClientDealer.Category c : cats) {
-            float w = pen.width(pen.kufi(c.name(), 4.6F, 700)) + 12;
-            if (cx - w < x + 6) {
-                cx = right;
-                cy += chipH + 3;
+        float gap = 12.0F;
+        float total = 0;
+        float[] widths = new float[cats.size()];
+        for (int i = 0; i < cats.size(); i++) {
+            widths[i] = pen.width(pen.kufi(cats.get(i).name(), 6.0F, 700)) + 18.0F;
+            total += widths[i] + gap;
+        }
+        if (editing) {
+            total += 18.0F;
+        }
+        float x = width / 2.0F + total / 2.0F;
+        for (int i = 0; i < cats.size(); i++) {
+            ClientDealer.Category c = cats.get(i);
+            float w = widths[i];
+            x -= w;
+            boolean on = c.id() == filter;
+            boolean hot = mx >= x && mx < x + w && my >= 0 && my < h;
+            int color = on ? ScreenKit.AMBER : hot ? ScreenKit.BONE : ScreenKit.MUTED;
+            pen.text(pen.kufi(c.name(), 6.0F, 700), x + w - 4, 15.0F, HudPen.RIGHT, color);
+            String n = String.valueOf(countIn(c.id()));
+            Shaped ns = pen.pixel(n, 6.0F, 700);
+            float nw = pen.width(ns) + 4;
+            pen.rect(x + 1, 9.0F, nw, 8.0F, on ? ScreenKit.alpha(ScreenKit.AMBER, 0.2F) : 0x14FFFFFF);
+            pen.text(ns, x + 1 + nw / 2, 15.5F, HudPen.CENTER, color);
+            if (on) {
+                pen.rect(x, h - 2, w, 2, ScreenKit.AMBER);
             }
-            kit.button("cat:" + c.id(), c.name(), cx - w, cy, w, chipH, c.id() == filter ? ScreenKit.FILLED : ScreenKit.GHOST, mx, my);
-            cx -= w + 3;
+            zone("cat:" + c.id(), x, 0, w, h);
+            x -= gap;
         }
-        cy += chipH + 6;
+        if (editing) {
+            kit.button("add.cat", "+", x - 14, 7, 14, 11, ScreenKit.GHOST, mx, my);
+            if (filter != 0) {
+                kit.button("edit.cat", "تعديل القسم", x - 64, 7, 46, 11, ScreenKit.GHOST, mx, my);
+            }
+        }
 
-        // the stock
-        List<ClientDealer.Listing> v = visible();
-        float rowH = 22.0F;
-        listTop = cy;
-        listBottom = y + h - 6;
-        rowsShown = Math.max(1, (int) ((listBottom - listTop) / rowH));
-        scroll = Math.max(0, Math.min(scroll, Math.max(0, v.size() - rowsShown)));
-        if (v.isEmpty()) {
-            pen.text(pen.kufi(ClientDealer.edit ? "ما فيه مركبات هنا · اضغط + مركبة" : "ما فيه مركبات هنا", 5.2F, 600),
-                    x + listW / 2, cy + 14, HudPen.CENTER, ScreenKit.FAINT);
+        // the buyer: balance and level, right
+        float right = width - pad;
+        if (ClientDealer.edit) {
+            kit.button("edit", editing ? "خلّصت" : "تعديل", right - 34, 6, 34, 12, editing ? ScreenKit.FILLED : ScreenKit.GHOST, mx, my);
+            right -= 40;
         }
-        for (int i = scroll; i < v.size() && i < scroll + rowsShown; i++) {
-            row(pen, v.get(i), x + 5, cy + (i - scroll) * rowH, listW - 10, rowH - 2, mx, my);
-        }
-        if (v.size() > rowsShown) {
-            float track = listBottom - listTop;
-            float thumb = Math.max(10, track * rowsShown / v.size());
-            float at = listTop + (track - thumb) * scroll / Math.max(1, v.size() - rowsShown);
-            pen.rect(x + 2, listTop, 1, track, 0x14FFFFFF);
-            pen.rect(x + 2, at, 1, thumb, ScreenKit.AMBER_DIM);
-        }
+        Shaped lv = pen.pixel(String.valueOf(ClientDealer.level), 8.0F, 700);
+        pen.text(lv, right, 16.0F, HudPen.RIGHT, ScreenKit.BONE);
+        Shaped lvl = pen.kufi("مستواك", 4.8F, 600);
+        pen.text(lvl, right - pen.width(lv) - 3, 15.5F, HudPen.RIGHT, ScreenKit.MUTED);
+        right -= pen.width(lv) + pen.width(lvl) + 12;
+        Shaped bal = pen.pixel(money(ClientDealer.balance), 9.0F, 700);
+        float bw = pen.width(bal) + 12;
+        pen.rect(right - bw, 5, bw, 14, 0x332B4A1F);
+        outline(pen, right - bw, 5, bw, 14, 0xFF3F6B2E);
+        pen.text(bal, right - bw / 2, 15.5F, HudPen.CENTER, CASH);
     }
 
-    private void row(HudPen pen, ClientDealer.Listing l, float x, float y, float w, float h, int mx, int my) {
-        boolean sel = l.id() == selected;
-        boolean hover = mx >= x && mx < x + w && my >= y && my < y + h;
-        pen.rect(x, y, w, h, sel ? 0x2AF0A93B : hover ? 0x14FFFFFF : 0x07FFFFFF);
-        if (sel) {
-            pen.rect(x + w - 1.5F, y, 1.5F, h, ScreenKit.AMBER);
-        }
-        float right = x + w - 6;
-        pen.text(pen.kufi(l.name(), 6.0F, 700), right, y + 8.5F, HudPen.RIGHT, ScreenKit.BONE);
-        boolean levelOk = ClientDealer.level >= l.level();
-        String sub = (l.level() > 0 ? "مستوى " + l.level() : "بدون مستوى") + (l.limited() ? " · محدودة ×" + l.count() : " · دائمة");
-        pen.text(pen.kufi(sub, 4.5F, 600), right, y + 16.5F, HudPen.RIGHT, levelOk ? ScreenKit.MUTED : ScreenKit.RUST);
-        boolean afford = ClientDealer.balance >= l.price();
-        pen.text(pen.pixel(money(l.price()), 8.0F, 700), x + 5, y + 10.0F, HudPen.LEFT, afford ? CASH : CASH_DIM);
-        ClientDealer.Owned o = ClientDealer.OWNED.get(l.entity());
-        if (o != null) {
-            String have = o.consumable() ? "عندك ×" + o.count() : "تملكها";
-            pen.text(pen.kufi(have, 4.4F, 700), x + 5, y + 17.0F, HudPen.LEFT, ScreenKit.SAGE);
-        }
-        zone("row:" + l.id(), x, y, w, h);
-    }
+    /* ================================================================== the information column */
 
-    /* ================================================================== the card */
-
-    private void drawCard(HudPen pen, ClientDealer.Listing l, float x, float y, float w, float h, int mx, int my, long now) {
-        kit.panel(x, y, w, h);
+    private void info(HudPen pen, ClientDealer.Listing l, float x, float y, float w, float h, int mx, int my, long now) {
+        pen.vgrad(x, y, w, h, 0xB00B0D0A, 0x900B0D0A);
+        pen.rect(x + w - 1.5F, y, 1.5F, h, ScreenKit.AMBER);
         if (l == null) {
-            pen.text(pen.kufi("اختر مركبة من القائمة", 6.5F, 600), x + w / 2, y + h / 2 + 2, HudPen.CENTER, ScreenKit.FAINT);
+            pen.text(pen.kufi("اختر مركبة", 6.5F, 600), x + w / 2, y + h / 2, HudPen.CENTER, ScreenKit.FAINT);
             return;
         }
-        float right = x + w - 9;
-        pen.text(pen.kufi(l.name(), 9.5F, 700), right, y + 16, HudPen.RIGHT, ScreenKit.BONE);
+        float right = x + w - 8;
+        float cy = y + 12;
         ClientDealer.Category c = ClientDealer.category(l.category());
-        pen.text(pen.kufi(c == null ? "" : c.name(), 5.2F, 600), right, y + 26, HudPen.RIGHT, ScreenKit.AMBER);
+        pen.text(pen.kufi(c == null ? "" : c.name(), 5.0F, 700), right, cy, HudPen.RIGHT, ScreenKit.AMBER);
+        if (l.fresh()) {
+            ribbon(pen, "جديد", x + 8, cy - 6, ScreenKit.AMBER);
+        }
+        cy += 14;
+        pen.text(pen.kufi(l.name(), 10.0F, 700), right, cy, HudPen.RIGHT, ScreenKit.BONE);
+        cy += 10;
 
-        // what it needs and what it is
         boolean levelOk = ClientDealer.level >= l.level();
-        String lv = l.level() > 0
-                ? "المستوى المطلوب " + l.level() + (levelOk ? "" : " · مستواك " + ClientDealer.level)
-                : "بدون مستوى";
-        float cr = chip(pen, lv, right, y + 34, levelOk ? ScreenKit.SAGE : ScreenKit.RUST);
-        String kind = l.limited() ? "محدودة · " + l.count() + " استخدام" : "دائمة · تبقى لك";
-        chip(pen, kind, cr - 4, y + 34, l.limited() ? ScreenKit.AMBER : ScreenKit.SOFT);
-        pen.text(pen.kufi(l.limited()
-                        ? "كل مرة تطلّعها تنقص وحدة، وترجع لك إذا خزّنتها"
-                        : "تطلّعها وتخزّنها متى ما بغيت", 4.5F, 600),
-                right, y + h - 7, HudPen.RIGHT, ScreenKit.FAINT);
+        cy = line(pen, "المستوى", l.level() > 0 ? String.valueOf(l.level()) : "بدون", levelOk ? ScreenKit.SAGE : ScreenKit.RUST,
+                x + 8, right, cy);
+        cy = line(pen, "النوع", l.limited() ? "محدودة · " + l.count() + " استخدام" : "دائمة", l.limited() ? ScreenKit.AMBER : ScreenKit.SOFT,
+                x + 8, right, cy);
+        ClientDealer.Owned o = ClientDealer.OWNED.get(l.entity());
+        cy = line(pen, "عندك", o == null ? "لا" : o.consumable() ? "×" + o.count() : "تملكها", o == null ? ScreenKit.FAINT : ScreenKit.SAGE,
+                x + 8, right, cy);
+        pen.text(pen.kufi(l.limited() ? "كل مرة تطلّعها تنقص وحدة، وترجع إذا خزّنتها" : "لك للأبد · تطلّعها وتخزّنها متى ما بغيت",
+                4.3F, 600), right, cy + 4, HudPen.RIGHT, ScreenKit.FAINT);
 
-        // price and the button
-        pen.text(pen.kufi("السعر", 4.8F, 600), x + 9, y + 11, HudPen.LEFT, ScreenKit.MUTED);
+        // price and the button, at the foot of the column
+        float by = y + h - 26;
+        pen.text(pen.kufi("السعر", 4.8F, 600), right, by - 20, HudPen.RIGHT, ScreenKit.MUTED);
         boolean afford = ClientDealer.balance >= l.price();
-        pen.text(pen.pixel(money(l.price()), 15.0F, 700), x + 9, y + 27, HudPen.LEFT, afford ? CASH : CASH_DIM);
-        float bx = x + 9;
-        float by = y + h - 9 - 17;
-        float bw = 112;
-        String blocked = owns(l) ? "تملكها" : !levelOk ? "مستواك ما يكفي" : !afford ? "رصيدك ما يكفي" : null;
-        if (blocked != null) {
-            pen.rect(bx, by, bw, 17, 0x0CFFFFFF);
-            outline(pen, bx, by, bw, 17, ScreenKit.LINE);
-            pen.text(pen.kufi(blocked, 6.0F, 700), bx + bw / 2, by + 11.0F, HudPen.CENTER,
-                    owns(l) ? ScreenKit.SAGE : ScreenKit.FAINT);
+        pen.text(pen.pixel(money(l.price()), 15.0F, 700), right, by - 5, HudPen.RIGHT, afford ? CASH : CASH_DIM);
+        String why = blocked(l);
+        if (why != null) {
+            pen.rect(x + 8, by, w - 16, 18, 0x0CFFFFFF);
+            outline(pen, x + 8, by, w - 16, 18, ScreenKit.LINE);
+            pen.text(pen.kufi(why, 6.0F, 700), x + w / 2, by + 11.5F, HudPen.CENTER, ownsDeed(l) ? ScreenKit.SAGE : ScreenKit.FAINT);
         } else {
-            boolean confirming = confirmBuy == l.id() && now - confirmAt < 3000L;
-            kit.button("buy", confirming ? "متأكد؟ اضغط مرة ثانية" : "اشترِ الحين", bx, by, bw, 17, ScreenKit.FILLED, mx, my);
-            pen.text(pen.kufi("يبقى لك " + money(ClientDealer.balance - l.price()), 4.5F, 600), bx + bw + 6, by + 10.5F,
-                    HudPen.LEFT, ScreenKit.MUTED);
+            kit.button("buy", "شراء", x + 8, by, w - 16, 18, ScreenKit.FILLED, mx, my);
         }
 
-        // the editor's tools float just above the card
-        if (ClientDealer.edit) {
-            float ty = y - 13;
+        if (editing) {
+            float ty = by - 40;
+            float bw = (w - 16 - 9) / 4.0F;
+            kit.button("edit.veh", "تعديل", x + 8, ty, bw, 10, ScreenKit.GHOST, mx, my);
             boolean del = confirmDelete == l.id() && now - deleteAt < 3000L;
-            kit.button("edit.veh", "تعديل", x, ty, 40, 10, ScreenKit.GHOST, mx, my);
-            kit.button("del.veh", del ? "متأكد؟" : "حذف", x + 44, ty, 40, 10, ScreenKit.DANGER, mx, my);
-            kit.button("up", "↑", x + 88, ty, 14, 10, ScreenKit.GHOST, mx, my);
-            kit.button("down", "↓", x + 106, ty, 14, 10, ScreenKit.GHOST, mx, my);
+            kit.button("del.veh", del ? "متأكد؟" : "حذف", x + 8 + bw + 3, ty, bw, 10, ScreenKit.DANGER, mx, my);
+            kit.button("up", "›", x + 8 + (bw + 3) * 2, ty, bw, 10, ScreenKit.GHOST, mx, my);
+            kit.button("down", "‹", x + 8 + (bw + 3) * 3, ty, bw, 10, ScreenKit.GHOST, mx, my);
         }
     }
 
-    /** A small labelled box ending at {@code right}; returns where its left edge is. */
-    private static float chip(HudPen pen, String text, float right, float y, int color) {
-        Shaped s = pen.kufi(text, 4.8F, 700);
-        float w = pen.width(s) + 10;
-        pen.rect(right - w, y, w, 10, ScreenKit.alpha(color, 0.12F));
-        outline(pen, right - w, y, w, 10, ScreenKit.alpha(color, 0.55F));
-        pen.text(s, right - w / 2, y + 6.8F, HudPen.CENTER, color);
-        return right - w;
+    /** A label on the right, its value on the left, a hairline under. Returns the next line's y. */
+    private static float line(HudPen pen, String label, String value, int color, float left, float right, float y) {
+        y += 10;
+        pen.text(pen.kufi(label, 4.8F, 600), right, y, HudPen.RIGHT, ScreenKit.MUTED);
+        Shaped v = arabic(value) ? pen.kufi(value, 5.2F, 700) : pen.pixel(value, 7.0F, 700);
+        pen.text(v, left, y, HudPen.LEFT, color);
+        pen.rect(left, y + 3, right - left, 0.5F, ScreenKit.LINE_SOFT);
+        return y;
+    }
+
+    private static void ribbon(HudPen pen, String text, float x, float y, int color) {
+        Shaped s = pen.kufi(text, 4.6F, 700);
+        float w = pen.width(s) + 8;
+        pen.rect(x, y, w, 8.5F, color);
+        pen.text(s, x + w / 2, y + 6.3F, HudPen.CENTER, ScreenKit.INK);
+    }
+
+    /* ================================================================== the carousel */
+
+    private static final float CARD_W = 86.0F;
+    private static final float CARD_H = 62.0F;
+    private static final float CARD_GAP = 6.0F;
+
+    private List<Card> layoutCards(float pad, float carH) {
+        List<ClientDealer.Listing> v = visible();
+        float inner = width - pad * 2 - 32;
+        carSlots = Math.max(1, (int) ((inner + CARD_GAP) / (CARD_W + CARD_GAP)));
+        carousel = Math.max(0, Math.min(carousel, Math.max(0, v.size() - carSlots)));
+        int shown = Math.min(carSlots, v.size() - carousel);
+        float rowW = shown * CARD_W + Math.max(0, shown - 1) * CARD_GAP;
+        float right = width / 2.0F + rowW / 2.0F;
+        List<Card> out = new ArrayList<>();
+        for (int j = 0; j < shown; j++) {
+            ClientDealer.Listing l = v.get(carousel + j);
+            boolean sel = l.id() == selected;
+            float x = right - (j + 1) * CARD_W - j * CARD_GAP;
+            float y = carY + 5 - (sel ? 3 : 0);
+            out.add(new Card(l, x, y, CARD_W, CARD_H));
+        }
+        return out;
+    }
+
+    private void cardBack(HudPen pen, Card c, int mx, int my) {
+        boolean sel = c.listing().id() == selected;
+        boolean hot = mx >= c.x() && mx < c.x() + c.w() && my >= c.y() && my < c.y() + c.h();
+        if (sel) {
+            for (int k = 0; k < 4; k++) {
+                pen.rect(c.x() - k, c.y() - k, c.w() + k * 2, c.h() + k * 2, ScreenKit.alpha(ScreenKit.AMBER, 0.05F));
+            }
+        }
+        pen.vgrad(c.x(), c.y(), c.w(), c.h(), sel ? 0xF02A2716 : hot ? 0xF01E221A : 0xF0161A13, 0xF00C0E0A);
+        // the little stage the model stands on
+        ellipse(pen, c.x() + c.w() / 2, c.y() + 39, c.w() * 0.34F, 3.2F, ScreenKit.alpha(0xFFF4E8CC, sel ? 0.10F : 0.05F));
+    }
+
+    private void carouselFront(HudPen pen, List<Card> cards, float pad, float carH, int mx, int my, long now) {
+        List<ClientDealer.Listing> v = visible();
+        for (Card c : cards) {
+            ClientDealer.Listing l = c.listing();
+            boolean sel = l.id() == selected;
+            boolean hot = mx >= c.x() && mx < c.x() + c.w() && my >= c.y() && my < c.y() + c.h();
+            outline(pen, c.x(), c.y(), c.w(), c.h(), sel ? ScreenKit.AMBER : hot ? ScreenKit.AMBER_DIM : ScreenKit.LINE);
+            if (sel) {
+                pen.rect(c.x(), c.y() + c.h() - 1.5F, c.w(), 1.5F, ScreenKit.AMBER);
+            }
+            boolean levelOk = ClientDealer.level >= l.level();
+            if (!levelOk) {
+                pen.rect(c.x() + 1, c.y() + 1, c.w() - 2, 43, 0x99000000);
+                padlock(pen, c.x() + c.w() / 2 - 4, c.y() + 14, ScreenKit.RUST);
+                pen.text(pen.kufi("مستوى " + l.level(), 4.8F, 700), c.x() + c.w() / 2, c.y() + 36, HudPen.CENTER, ScreenKit.RUST);
+            }
+            pen.text(pen.kufi(l.name(), 5.0F, 700), c.x() + c.w() - 4, c.y() + 51, HudPen.RIGHT, sel ? ScreenKit.BONE : ScreenKit.SOFT);
+            boolean afford = ClientDealer.balance >= l.price();
+            pen.text(pen.pixel(money(l.price()), 6.5F, 700), c.x() + 4, c.y() + 59, HudPen.LEFT, afford ? CASH : CASH_DIM);
+            if (l.fresh()) {
+                ribbon(pen, "جديد", c.x() + 2, c.y() + 2, ScreenKit.AMBER);
+            }
+            ClientDealer.Owned o = ClientDealer.OWNED.get(l.entity());
+            if (o != null) {
+                Shaped s = pen.kufi(o.consumable() ? "×" + o.count() : "لك", 4.5F, 700);
+                float w = pen.width(s) + 7;
+                pen.rect(c.x() + c.w() - w - 2, c.y() + 2, w, 8, ScreenKit.alpha(ScreenKit.SAGE, 0.85F));
+                pen.text(s, c.x() + c.w() - 2 - w / 2, c.y() + 8, HudPen.CENTER, ScreenKit.INK);
+            }
+            if (l.limited()) {
+                pen.text(pen.kufi("محدودة", 4.2F, 700), c.x() + c.w() - 4, c.y() + 59, HudPen.RIGHT, ScreenKit.AMBER);
+            }
+            zone("card:" + l.id(), c.x(), c.y(), c.w(), c.h());
+        }
+        // the arrows when there is more than fits
+        float midY = carY + 5 + CARD_H / 2 - 9;
+        if (carousel > 0) {
+            kit.button("car.prev", "›", width - pad - 14, midY, 14, 18, ScreenKit.GHOST, mx, my);
+        }
+        if (carousel + carSlots < v.size()) {
+            kit.button("car.next", "‹", pad, midY, 14, 18, ScreenKit.GHOST, mx, my);
+        }
+        if (editing) {
+            kit.button("add.veh", "+ مركبة جديدة", width / 2 - 40, carY - 13, 80, 11, ScreenKit.GHOST, mx, my);
+        }
+        if (v.isEmpty()) {
+            pen.text(pen.kufi(editing ? "ما فيه مركبات هنا · اضغط + مركبة جديدة" : "ما فيه مركبات في هذا القسم", 6.0F, 600),
+                    width / 2.0F, carY + 38, HudPen.CENTER, ScreenKit.FAINT);
+        }
+    }
+
+    private static void padlock(HudPen pen, float x, float y, int argb) {
+        outline(pen, x + 2, y, 4, 5, argb);
+        pen.rect(x, y + 4, 8, 7, argb);
+        pen.rect(x + 3.5F, y + 6, 1, 3, 0xFF0B0D0A);
+    }
+
+    /* ================================================================== buying */
+
+    private void buyDialog(HudPen pen, int mx, int my, long now) {
+        ClientDealer.Listing l = buying;
+        if (l == null) {
+            buyState = BUY_NONE;
+            return;
+        }
+        pen.rect(0, 0, width, height, 0xB8030403);
+        float w = 210;
+        float h = buyState == BUY_DONE ? 150 : 132;
+        float x = (width - w) / 2.0F;
+        float y = (height - h) / 2.0F;
+        // the dialog rises into place
+        float in = Math.min(1.0F, (now - buyAt) / 180.0F);
+        y += (1.0F - in) * 10.0F;
+        kit.panel(x, y, w, h);
+        float right = x + w - 10;
+
+        if (buyState == BUY_DONE) {
+            float t = Math.min(1.0F, (now - buyAt) / 1200.0F);
+            float e = 1.0F - (1.0F - t) * (1.0F - t) * (1.0F - t);
+            float cx = x + w / 2;
+            // a burst of light behind the tick
+            float pulse = 0.5F + 0.5F * (float) Math.sin(now / 160.0D);
+            for (int k = 0; k < 5; k++) {
+                ellipse(pen, cx, y + 30, 26 - k * 4, 26 - k * 4, ScreenKit.alpha(GOLD, 0.05F + 0.03F * pulse));
+            }
+            ellipse(pen, cx, y + 30, 13, 13, ScreenKit.SAGE);
+            tick(pen, cx, y + 30, 0xFF0B0D0A);
+            pen.glow(pen.kufi("تم الشراء!", 11.0F, 700), cx, y + 60, HudPen.CENTER, 3.0F, ScreenKit.alpha(GOLD, 0.5F));
+            pen.text(pen.kufi("تم الشراء!", 11.0F, 700), cx, y + 60, HudPen.CENTER, ScreenKit.BONE);
+            pen.text(pen.kufi(l.name() + " صارت لك · تلقاها في قائمة مركباتك", 5.0F, 600), cx, y + 72, HudPen.CENTER,
+                    ScreenKit.SOFT);
+            // the balance running down to what is left
+            long shown = balanceBefore - Math.round(l.price() * e);
+            pen.text(pen.kufi("رصيدك", 5.0F, 600), cx, y + 88, HudPen.CENTER, ScreenKit.MUTED);
+            pen.text(pen.pixel(money(shown), 14.0F, 700), cx, y + 104, HudPen.CENTER, CASH);
+            float fy = y + 96 - e * 18;
+            pen.text(pen.pixel("-" + money(l.price()), 8.0F, 700), cx + 50, fy, HudPen.LEFT,
+                    ScreenKit.alpha(ScreenKit.RUST, 1.0F - e * 0.8F));
+            coins(pen, cx, y + 30, now);
+            kit.button("buy.ok", "تمام", x + w / 2 - 40, y + h - 26, 80, 16, ScreenKit.FILLED, mx, my);
+            return;
+        }
+
+        pen.text(pen.kufi(buyState == BUY_FAIL ? "ما تم الشراء" : "تأكيد الشراء", 7.5F, 700), right, y + 16, HudPen.RIGHT,
+                buyState == BUY_FAIL ? ScreenKit.RUST : ScreenKit.BONE);
+        pen.rect(right - 1.5F, y + 9, 1.5F, 8, buyState == BUY_FAIL ? ScreenKit.RUST : ScreenKit.AMBER);
+        pen.text(pen.kufi(l.name(), 9.0F, 700), right, y + 33, HudPen.RIGHT, ScreenKit.AMBER);
+        float ly = y + 38;
+        ly = line(pen, "السعر", money(l.price()), ScreenKit.BONE, x + 10, right, ly);
+        ly = line(pen, "رصيدك الحين", money(balanceBefore), CASH, x + 10, right, ly);
+        ly = line(pen, "بعد الشراء", money(balanceBefore - l.price()), ScreenKit.SOFT, x + 10, right, ly);
+        ly = line(pen, "النوع", l.limited() ? "محدودة · " + l.count() + " استخدام" : "دائمة", ScreenKit.SOFT, x + 10, right, ly);
+        float by = y + h - 26;
+        if (buyState == BUY_FAIL) {
+            pen.text(pen.kufi(buyMessage, 5.5F, 700), x + w / 2, by - 6, HudPen.CENTER, ScreenKit.RUST);
+            kit.button("buy.cancel", "رجوع", x + w / 2 - 40, by, 80, 16, ScreenKit.GHOST, mx, my);
+        } else if (buyState == BUY_WAIT) {
+            int dots = (int) (now / 300L % 4);
+            pen.text(pen.kufi("جاري الشراء" + ".".repeat(dots), 6.5F, 700), x + w / 2, by + 11, HudPen.CENTER, ScreenKit.MUTED);
+        } else {
+            float bw = (w - 26) / 2;
+            kit.button("buy.yes", "تأكيد الشراء", x + 10 + bw + 6, by, bw, 16, ScreenKit.FILLED, mx, my);
+            kit.button("buy.cancel", "إلغاء", x + 10, by, bw, 16, ScreenKit.GHOST, mx, my);
+        }
+    }
+
+    /** A tick mark out of two strokes of little squares. */
+    private static void tick(HudPen pen, float cx, float cy, int argb) {
+        for (float t = 0; t <= 1.0F; t += 0.08F) {
+            pen.rect(cx - 6 + t * 4, cy + t * 4, 2.2F, 2.2F, argb);
+        }
+        for (float t = 0; t <= 1.0F; t += 0.05F) {
+            pen.rect(cx - 2 + t * 8, cy + 4 - t * 9, 2.2F, 2.2F, argb);
+        }
+    }
+
+    /** Gold coins thrown up from the tick, falling and fading. */
+    private void coins(HudPen pen, float cx, float cy, long now) {
+        float t = (now - buyAt) / 1000.0F;
+        for (float[] c : coins) {
+            float tt = t - c[3];
+            if (tt < 0 || tt > 1.6F) {
+                continue;
+            }
+            float px = cx + c[0] * tt * 2.2F;
+            float py = cy + c[1] * tt + 90.0F * tt * tt;
+            float a = Math.max(0.0F, 1.0F - tt / 1.6F);
+            float s = 2.4F;
+            pen.rect(px - s / 2, py - s / 2, s, s, ScreenKit.alpha(GOLD, a));
+            pen.rect(px - s / 2, py - s / 2, s * 0.5F, s * 0.5F, ScreenKit.alpha(0xFFFFF1C2, a));
+        }
     }
 
     private static void outline(HudPen pen, float x, float y, float w, float h, int argb) {
@@ -507,6 +753,23 @@ public class DealerScreen extends Screen {
         pen.text(s, cx + 1, y + 10, HudPen.CENTER, ScreenKit.alpha(ScreenKit.BONE, a));
     }
 
+    /* ================================================================== zones */
+
+    private void zone(String id, float x, float y, float w, float h) {
+        zones.add(new float[]{x, y, x + w, y + h});
+        zoneIds.add(id);
+    }
+
+    private String zoneAt(double mx, double my) {
+        for (int i = zones.size() - 1; i >= 0; i--) {
+            float[] r = zones.get(i);
+            if (mx >= r[0] && mx < r[2] && my >= r[1] && my < r[3]) {
+                return zoneIds.get(i);
+            }
+        }
+        return null;
+    }
+
     /* ================================================================== the editor */
 
     private static final class Field {
@@ -515,9 +778,6 @@ public class DealerScreen extends Screen {
         final boolean numeric;
         final int max;
         String value;
-        float x;
-        float y;
-        float w;
 
         Field(String key, String label, String value, boolean numeric, int max) {
             this.key = key;
@@ -576,84 +836,79 @@ public class DealerScreen extends Screen {
         focus = f.fields.get(0);
     }
 
-    private void drawForm(HudPen pen, int mx, int my, float pad, float listW, long now) {
-        float x = listX;
-        float y = pad;
-        float h = height - pad * 2;
-        kit.panel(x, y, listW, h);
-        float right = x + listW - 7;
+    private void drawForm(HudPen pen, float x, float y, float w, float h, int mx, int my, long now) {
+        pen.rect(x, y, w, h, 0xE80B0D0A);
+        outline(pen, x, y, w, h, ScreenKit.LINE);
+        pen.rect(x + w - 1.5F, y, 1.5F, h, ScreenKit.AMBER);
+        float right = x + w - 7;
         String title = form.vehicle ? (form.editId > 0 ? "تعديل مركبة" : "مركبة جديدة")
                 : (form.editId > 0 ? "تعديل القسم" : "قسم جديد");
-        kit.heading(title, right, y + 13);
-        float fx = x + 8;
-        float fw = listW - 16;
-        float cy = y + 30;
+        pen.text(pen.kufi(title, 7.0F, 700), right, y + 13, HudPen.RIGHT, ScreenKit.BONE);
+        float fx = x + 7;
+        float fw = w - 14;
+        float cy = y + 26;
+        float step = 21;
         if (form.vehicle) {
-            field(pen, form.field("entity"), fx + 44, cy, fw - 44, mx, my, now);
-            kit.button("form.pick", "اللي قدامك", fx, cy, 40, 13, ScreenKit.GHOST, mx, my);
-            cy += 25;
-            field(pen, form.field("name"), fx, cy, fw, mx, my, now);
-            cy += 25;
-            float half = (fw - 6) / 2;
-            field(pen, form.field("price"), fx + half + 6, cy, half, mx, my, now);
-            field(pen, form.field("level"), fx, cy, half, mx, my, now);
-            cy += 25;
+            field(pen, form.field("entity"), fx + 36, cy, fw - 36, now);
+            kit.button("form.pick", "اللي قدامك", fx, cy, 33, 12, ScreenKit.GHOST, mx, my);
+            cy += step;
+            field(pen, form.field("name"), fx, cy, fw, now);
+            cy += step;
+            float half = (fw - 4) / 2;
+            field(pen, form.field("price"), fx + half + 4, cy, half, now);
+            field(pen, form.field("level"), fx, cy, half, now);
+            cy += step;
             label(pen, "القسم", fx + fw, cy - 2.5F);
             ClientDealer.Category c = ClientDealer.category(form.category);
-            kit.button("form.cat", c == null ? "سو قسم أول" : c.name() + "  ‹›", fx + half + 6, cy, half, 13, ScreenKit.GHOST, mx, my);
+            kit.button("form.cat", c == null ? "سو قسم أول" : c.name(), fx + half + 4, cy, half, 12, ScreenKit.GHOST, mx, my);
             label(pen, "النوع", fx + half, cy - 2.5F);
-            kit.button("form.limited", form.limited ? "محدودة" : "دائمة", fx, cy, half, 13,
+            kit.button("form.limited", form.limited ? "محدودة" : "دائمة", fx, cy, half, 12,
                     form.limited ? ScreenKit.FILLED : ScreenKit.GHOST, mx, my);
-            cy += 25;
+            cy += step;
             if (form.limited) {
-                field(pen, form.field("count"), fx, cy, fw, mx, my, now);
-                cy += 25;
+                field(pen, form.field("count"), fx, cy, fw, now);
+                cy += step;
             }
-            pen.text(pen.kufi("الـ id مثل superbwarfare:humvee · المعاينة على اليسار", 4.4F, 600), fx + fw, cy - 4,
-                    HudPen.RIGHT, ScreenKit.FAINT);
-            pen.text(pen.kufi("اركب المركبة أو طالعها واضغط «اللي قدامك» عشان ينكتب الـ id", 4.4F, 600), fx + fw, cy + 4,
-                    HudPen.RIGHT, ScreenKit.FAINT);
-            cy += 12;
+            pen.text(pen.kufi("اركب المركبة أو طالعها قبل ما تفتح المعرض", 4.2F, 600), fx + fw, cy - 4, HudPen.RIGHT, ScreenKit.FAINT);
+            pen.text(pen.kufi("واضغط «اللي قدامك» · المعاينة على اليسار", 4.2F, 600), fx + fw, cy + 3, HudPen.RIGHT, ScreenKit.FAINT);
+            cy += 9;
         } else {
-            field(pen, form.field("name"), fx, cy, fw, mx, my, now);
-            cy += 25;
+            field(pen, form.field("name"), fx, cy, fw, now);
+            cy += step;
         }
-        float bw = (fw - 6) / 2;
-        kit.button("form.save", "حفظ", fx + bw + 6, cy, bw, 15, ScreenKit.FILLED, mx, my);
-        kit.button("form.cancel", "إلغاء", fx, cy, bw, 15, ScreenKit.GHOST, mx, my);
+        float bw = (fw - 4) / 2;
+        kit.button("form.save", "حفظ", fx + bw + 4, cy, bw, 14, ScreenKit.FILLED, mx, my);
+        kit.button("form.cancel", "إلغاء", fx, cy, bw, 14, ScreenKit.GHOST, mx, my);
         if (!form.vehicle && form.editId > 0) {
             boolean del = confirmDelete == -form.editId && now - deleteAt < 3000L;
-            kit.button("form.delete", del ? "متأكد؟ اضغط مرة ثانية" : "حذف القسم", fx, cy + 20, fw, 13, ScreenKit.DANGER, mx, my);
+            kit.button("form.delete", del ? "متأكد؟ اضغط مرة ثانية" : "حذف القسم", fx, cy + 18, fw, 12, ScreenKit.DANGER, mx, my);
         }
     }
 
     private static void label(HudPen pen, String text, float right, float baseline) {
-        pen.text(pen.kufi(text, 4.8F, 600), right, baseline, HudPen.RIGHT, ScreenKit.MUTED);
+        pen.text(pen.kufi(text, 4.6F, 600), right, baseline, HudPen.RIGHT, ScreenKit.MUTED);
     }
 
-    private void field(HudPen pen, Field f, float x, float y, float w, int mx, int my, long now) {
-        f.x = x;
-        f.y = y;
-        f.w = w;
+    private void field(HudPen pen, Field f, float x, float y, float w, long now) {
         label(pen, f.label, x + w, y - 2.5F);
         boolean focused = f == focus;
-        pen.rect(x, y, w, 13, 0xA0000000);
-        outline(pen, x, y, w, 13, focused ? ScreenKit.AMBER : ScreenKit.LINE);
+        pen.rect(x, y, w, 12, 0xA0000000);
+        outline(pen, x, y, w, 12, focused ? ScreenKit.AMBER : ScreenKit.LINE);
         boolean ar = arabic(f.value);
-        Shaped s = ar ? pen.kufi(f.value, 5.6F, 600) : pen.pixel(f.value, 7.0F, 600);
+        Shaped s = ar ? pen.kufi(f.value, 5.4F, 600) : pen.pixel(f.value, 6.5F, 600);
         float tw = pen.width(s);
         if (f.value.isEmpty()) {
-            pen.text(pen.kufi("…", 5.0F, 600), x + w - 4, y + 8.5F, HudPen.RIGHT, ScreenKit.FAINT);
+            pen.text(pen.kufi("…", 5.0F, 600), x + w - 4, y + 8.0F, HudPen.RIGHT, ScreenKit.FAINT);
         } else if (ar) {
-            pen.text(s, x + w - 4, y + 9.0F, HudPen.RIGHT, ScreenKit.BONE);
+            pen.text(s, x + w - 4, y + 8.5F, HudPen.RIGHT, ScreenKit.BONE);
         } else {
-            pen.text(s, x + 4, y + 9.0F, HudPen.LEFT, ScreenKit.BONE);
+            pen.text(s, x + 3, y + 8.5F, HudPen.LEFT, ScreenKit.BONE);
         }
         if (focused && (now / 500L) % 2 == 0) {
-            float cx = ar ? x + w - 5 - tw : x + 4 + tw + 0.5F;
-            pen.rect(cx, y + 3, 0.75F, 7, ScreenKit.AMBER);
+            float cx = ar ? x + w - 5 - tw : x + 3 + tw + 0.5F;
+            pen.rect(cx, y + 2.5F, 0.75F, 7, ScreenKit.AMBER);
         }
-        zone("f:" + f.key, x, y, w, 13);
+        zone("f:" + f.key, x, y, w, 12);
     }
 
     private void save() {
@@ -710,46 +965,73 @@ public class DealerScreen extends Screen {
             return true;
         }
         String id = kit.hit(mx, my);
-        if (id == null) {
+        if (id == null && buyState == BUY_NONE) {
             id = zoneAt(mx, my);
+        }
+        long now = System.currentTimeMillis();
+        if (buyState != BUY_NONE) {
+            // the dialog owns every click while it is up
+            if (id == null) {
+                return true;
+            }
+            ScreenKit.click();
+            switch (id) {
+                case "buy.yes" -> {
+                    CompoundTag t = new CompoundTag();
+                    t.putInt("Id", buying.id());
+                    ClientDealer.send("buy", t);
+                    buyState = BUY_WAIT;
+                }
+                case "buy.cancel", "buy.ok" -> {
+                    buyState = BUY_NONE;
+                    buying = null;
+                }
+                default -> {
+                }
+            }
+            return true;
         }
         if (id == null) {
             focus = null;
-            if (mx < stageX1) {
+            if (mx < stageX1 && my < carY) {
                 dragging = true;
-                lastTouch = System.currentTimeMillis();
+                lastTouch = now;
             }
             return true;
         }
         ScreenKit.click();
-        long now = System.currentTimeMillis();
         if (id.startsWith("f:") && form != null) {
             focus = form.field(id.substring(2));
             return true;
         }
         if (id.startsWith("cat:")) {
             filter = Integer.parseInt(id.substring(4));
-            scroll = 0;
+            carousel = 0;
             settle();
             return true;
         }
-        if (id.startsWith("row:")) {
-            selected = Integer.parseInt(id.substring(4));
-            confirmBuy = -1;
+        if (id.startsWith("card:")) {
+            select(Integer.parseInt(id.substring(5)));
             return true;
         }
         switch (id) {
             case "buy" -> {
-                if (confirmBuy == selected && now - confirmAt < 3000L) {
-                    CompoundTag t = new CompoundTag();
-                    t.putInt("Id", selected);
-                    ClientDealer.send("buy", t);
-                    confirmBuy = -1;
-                } else {
-                    confirmBuy = selected;
-                    confirmAt = now;
+                ClientDealer.Listing l = listing(selected);
+                if (l != null && blocked(l) == null) {
+                    buying = l;
+                    balanceBefore = ClientDealer.balance;
+                    buyState = BUY_ASK;
+                    buyAt = now;
+                    UiSounds.open();
                 }
             }
+            case "edit" -> {
+                editing = !editing;
+                form = null;
+                focus = null;
+            }
+            case "car.prev" -> carousel = Math.max(0, carousel - 1);
+            case "car.next" -> carousel++;
             case "add.veh" -> openVehicleForm(null);
             case "add.cat" -> openCategoryForm(null);
             case "edit.cat" -> openCategoryForm(ClientDealer.category(filter));
@@ -831,8 +1113,11 @@ public class DealerScreen extends Screen {
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (mx >= listX && form == null) {
-            scroll -= (int) Math.signum(delta);
+        if (buyState != BUY_NONE) {
+            return true;
+        }
+        if (my >= carY) {
+            carousel -= (int) Math.signum(delta);
         } else if (mx < stageX1) {
             zoom = Math.max(0.6F, Math.min(1.6F, zoom + (float) delta * 0.08F));
             lastTouch = System.currentTimeMillis();
@@ -856,6 +1141,13 @@ public class DealerScreen extends Screen {
 
     @Override
     public boolean keyPressed(int key, int scan, int modifiers) {
+        if (buyState != BUY_NONE) {
+            if (key == 256 && buyState != BUY_WAIT) {
+                buyState = BUY_NONE;
+                buying = null;
+            }
+            return true;
+        }
         if (form != null) {
             if (key == 256) {
                 form = null;
@@ -891,6 +1183,27 @@ public class DealerScreen extends Screen {
                 }
                 return true;
             }
+        }
+        // the arrow keys walk the carousel
+        if (key == 262 || key == 263) {
+            List<ClientDealer.Listing> v = visible();
+            int at = 0;
+            for (int i = 0; i < v.size(); i++) {
+                if (v.get(i).id() == selected) {
+                    at = i;
+                }
+            }
+            // right-to-left: the left arrow goes on to the next card
+            int next = Math.max(0, Math.min(v.size() - 1, at + (key == 263 ? 1 : -1)));
+            if (!v.isEmpty()) {
+                select(v.get(next).id());
+                if (next < carousel) {
+                    carousel = next;
+                } else if (next >= carousel + carSlots) {
+                    carousel = next - carSlots + 1;
+                }
+            }
+            return true;
         }
         return super.keyPressed(key, scan, modifiers);
     }

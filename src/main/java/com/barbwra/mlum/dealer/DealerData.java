@@ -44,6 +44,8 @@ public final class DealerData extends SavedData {
         /** Sold as a number of uses rather than for good - see {@code VehicleEntry.consumable}. */
         public boolean limited;
         public int count;
+        /** When it was put on sale (wall clock), so the showroom can mark new arrivals. */
+        public long added;
 
         Listing(int id) {
             this.id = id;
@@ -111,6 +113,7 @@ public final class DealerData extends SavedData {
 
     public Listing addListing() {
         Listing l = new Listing(nextListing++);
+        l.added = System.currentTimeMillis();
         listings.add(l);
         setDirty();
         return l;
@@ -167,6 +170,7 @@ public final class DealerData extends SavedData {
         t.putInt("Level", l.level);
         t.putBoolean("Limited", l.limited);
         t.putInt("Count", l.count);
+        t.putLong("Added", l.added);
         return t;
     }
 
@@ -196,6 +200,7 @@ public final class DealerData extends SavedData {
             l.level = t.getInt("Level");
             l.limited = t.getBoolean("Limited");
             l.count = t.getInt("Count");
+            l.added = t.getLong("Added");
             d.listings.add(l);
         }
         d.nextCategory = Math.max(1, tag.getInt("NextCat"));

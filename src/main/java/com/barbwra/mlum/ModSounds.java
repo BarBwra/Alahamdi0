@@ -32,6 +32,7 @@ public final class ModSounds {
     public static final RegistryObject<SoundEvent> UI_CLOSE = register("ui.close");
     public static final RegistryObject<SoundEvent> UI_VAULT_OPEN = register("ui.vault_open");
     public static final RegistryObject<SoundEvent> UI_VAULT_PAGE = register("ui.vault_page");
+    public static final RegistryObject<SoundEvent> UI_PURCHASE = register("ui.purchase");
     public static final RegistryObject<SoundEvent> HEARTBEAT = register("feel.heartbeat");
 
     private static RegistryObject<SoundEvent> register(String name) {

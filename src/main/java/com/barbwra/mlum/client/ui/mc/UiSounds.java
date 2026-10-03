@@ -49,6 +49,11 @@ public final class UiSounds {
         play(unlock ? ModSounds.UI_VAULT_OPEN : ModSounds.UI_VAULT_PAGE, 0.9F, 1.0F);
     }
 
+    /** A purchase gone through: the till. */
+    public static void purchase() {
+        play(ModSounds.UI_PURCHASE, 0.9F, 1.0F);
+    }
+
     public static void open() {
         play(ModSounds.UI_OPEN, 0.6F, 1.0F);
     }

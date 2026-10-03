@@ -122,5 +122,13 @@
         "preload": true
       }
     ]
+  },
+  "ui.purchase": {
+    "sounds": [
+      {
+        "name": "mlum:ui/purchase",
+        "preload": true
+      }
+    ]
   }
 }

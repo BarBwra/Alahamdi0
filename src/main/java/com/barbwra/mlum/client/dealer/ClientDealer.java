@@ -31,7 +31,12 @@ public final class ClientDealer {
     }
 
     public record Listing(int id, String entity, String name, int category, long price, int level, boolean limited,
-                          int count) {
+                          int count, long added) {
+
+        /** On sale for less than a week. */
+        public boolean fresh() {
+            return added > 0 && System.currentTimeMillis() - added < 7L * 86_400_000L;
+        }
     }
 
     /** What the buyer already holds of an entity type: a deed, or uses left. */
@@ -84,7 +89,7 @@ public final class ClientDealer {
         for (int i = 0; i < items.size(); i++) {
             CompoundTag t = items.getCompound(i);
             LISTINGS.add(new Listing(t.getInt("Id"), t.getString("Entity"), t.getString("Name"), t.getInt("Cat"),
-                    t.getLong("Price"), t.getInt("Level"), t.getBoolean("Limited"), t.getInt("Count")));
+                    t.getLong("Price"), t.getInt("Level"), t.getBoolean("Limited"), t.getInt("Count"), t.getLong("Added")));
         }
         OWNED.clear();
         ListTag owned = tag.getList("Owned", Tag.TAG_COMPOUND);

@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.13.0**, network protocol **16**.
+Last updated at **mlum 3.14.0**, network protocol **17**.
 
 ---
 
@@ -608,6 +608,22 @@ page turn - the menu reopening within 1.5 s of closing - only spins the dial (`u
   you ride or look at. The vehicle is drawn only in the buyer's screen
   (`EntityPreview.showroom`), and other clients skip rendering anyone browsing (`browsing` ids).
   Packets `S2CDealer` / `C2SDealer`, protocol 16.
+
+### 3.14.0 — vault screen and rent, showroom rework, ghillie by server list
+- Ghillie: hidden players are a server-sent id list (`S2CGhillie`), not the invisible flag - other
+  invisibility (another mod's suit, potions) no longer skips the wait. Your own shimmer shows in F5.
+- Bag: an attachment selected, carried or hovered sets `Slots.FIT` on every mount it fits.
+- Faction vault: `UiPage.chrome()` false for a vault - no tab bar or footer; `VaultView.screen`
+  puts the vault (56px cells, tall turn buttons, A/D keys) beside the bag. Page turns slide a
+  shutter (`closeShutter`/`openShutter`) instead of the static. Rent: pages after the first cost
+  `FactionLevel.RENT_PER_PAGE_DAY` (500) each per real day from the faction bank, plans
+  `RENT_DAYS` 1/7/20/30 at `RENT_OFF` 0/5/10/15%; `FactionVault.rentUntil`, enforced in
+  `FactionVaultAccess.resolve` for everyone but real operators; paid with `C2SVaultRent` by
+  leader/deputy. The vault's open buffer now carries rent left, bank, may-pay and level.
+- Dealership screen rebuilt: section tabs with counts along the top, the vehicle on the stage, an
+  information column, a carousel of cards each with its own live model and ribbons (new this
+  week via `Listing.added`, owned, level-locked), a purchase dialog and a success screen
+  (balance counting down, coins, `ui.purchase`). Editors toggle edit mode in the corner.
 
 ## 12. Open items
 
