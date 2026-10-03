@@ -47,6 +47,7 @@ public final class Perms {
     public static final String ALERTS = "alerts";
     public static final String RESTART = "restart";
     public static final String SCHEDULE = "schedule";
+    public static final String DEALER = "dealer.edit";
 
     public static final List<Node> ALL = List.of(
             new Node(PANEL, "يفتح لوحة الأدمن", "عام"),
@@ -66,7 +67,8 @@ public final class Perms {
             new Node(TICKETS, "تذاكر الدعم", "عام"),
             new Node(ALERTS, "تنبيهات التكرار", "عام"),
             new Node(RESTART, "الريستارت المجدول", "السيرفر"),
-            new Node(SCHEDULE, "الأحداث المجدولة", "السيرفر"));
+            new Node(SCHEDULE, "الأحداث المجدولة", "السيرفر"),
+            new Node(DEALER, "يعدّل معرض المركبات", "السيرفر"));
 
     /** Does a rank holding {@code granted} have {@code wanted}? */
     public static boolean covers(String granted, String wanted) {

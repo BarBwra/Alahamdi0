@@ -1,6 +1,6 @@
 # MlumInventory — Minecraft 1.20.1 / Forge 47.4.10
 
-**v3.12.1** (network protocol 15) — see "What is new" below, and `HANDOFF.md` §5.4 and §11b
+**v3.13.0** (network protocol 16) — see "What is new" below, and `HANDOFF.md` §5.4 and §11b
 for developers.
 
 ---
@@ -16,6 +16,8 @@ for developers.
 | **Screens** | ESC menu, title screen, loading screens and crafting table redrawn in the bag's look, under the name Mlum. Client config `[screens]` |
 | **F5** | over-the-shoulder camera, X swaps the shoulder, a mark shows where a gun is really aimed |
 | **Sounds** | hover, click, open and close sounds in every menu |
+| **Dealership** | `/mlum dealer open <player>` (command block at the showroom). The vehicle turns on a lit stage only the buyer sees; price, level and limited/permanent shown plainly; paid from the bag balance. OPs add sections and vehicles in the same screen |
+| **Ghillie** | a 5 s countdown above the wrist; any movement restarts it; hidden wearers are a faint ripple up close |
 | **Low health** | red edges, a heartbeat and muffled sound below 35% health |
 
 Each feel feature can be turned off in the client config `[feel]`.

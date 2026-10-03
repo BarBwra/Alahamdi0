@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.12.2**, network protocol **15**.
+Last updated at **mlum 3.13.0**, network protocol **16**.
 
 ---
 
@@ -592,6 +592,22 @@ drawers (`vpg:N`, jump straight to a page) and a recessed interior with bolts ei
 cells are still the `box:` slot nodes, so interaction is unchanged. A fresh opening runs the
 unlock (dial spins, bolts draw back, two inner leaves slide apart, ~1.25 s, `ui.vault_open`); a
 page turn - the menu reopening within 1.5 s of closing - only spins the dial (`ui.vault_page`).
+
+### 3.13.0 — ghillie timer and shimmer, the vehicle dealership
+- Ghillie: the notice above the wrist is now a real countdown (ring + seconds) and draws in any game
+  mode, and on its own (`FieldHud.ghillieOnly`) with the field HUD off. `Ghillie.DRIFT` is 0.15 -
+  any step or letting go of Shift restarts it. Other clients draw a hidden wearer as a faint
+  rippling translucent body (`GhillieClient.shimmer`, `Ripple` vertex wrapper) within 9 blocks,
+  stronger when looked at directly.
+- Dealership (`dealer/`, `client/dealer/`): opened only by `/mlum dealer open <players>` (level 2;
+  a command block at the showroom). That starts a 30-minute server session; buying needs one.
+  Price comes out of the bag balance (`WalletService.take`, refunded if `VehicleGarage.give`
+  refuses). Requirement: vanilla XP level. Limited = `VehicleEntry.consumable` with the listing's
+  count; otherwise a deed. Stock is `mlum_dealer` SavedData, edited in game by anyone with
+  `dealer.edit` (OPs always): sections, vehicles, order; the form fills the id from the vehicle
+  you ride or look at. The vehicle is drawn only in the buyer's screen
+  (`EntityPreview.showroom`), and other clients skip rendering anyone browsing (`browsing` ids).
+  Packets `S2CDealer` / `C2SDealer`, protocol 16.
 
 ## 12. Open items
 

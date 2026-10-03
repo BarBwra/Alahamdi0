@@ -77,8 +77,10 @@ public final class ModNetwork {
      * entity id after the vault bytes.</p>
      *
      * <p>14 -&gt; 15: the admin system - {@code S2CAdmin} and {@code C2SAdmin}.</p>
+     *
+     * <p>15 -&gt; 16: the vehicle dealership - {@code S2CDealer} and {@code C2SDealer}.</p>
      */
-    private static final String PROTOCOL = "15";
+    private static final String PROTOCOL = "16";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             MlumInventory.id("main"),
@@ -289,6 +291,17 @@ public final class ModNetwork {
                 .encoder(C2SAdmin::encode)
                 .decoder(C2SAdmin::decode)
                 .consumerMainThread(C2SAdmin::handle)
+                .add();
+
+        CHANNEL.messageBuilder(S2CDealer.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CDealer::encode)
+                .decoder(S2CDealer::decode)
+                .consumerMainThread(S2CDealer::handle)
+                .add();
+        CHANNEL.messageBuilder(C2SDealer.class, nextId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(C2SDealer::encode)
+                .decoder(C2SDealer::decode)
+                .consumerMainThread(C2SDealer::handle)
                 .add();
 
     }

@@ -164,6 +164,66 @@ public final class EntityPreview {
         return ok;
     }
 
+    /**
+     * The showroom view: the entity standing on a point of the screen (its wheels on
+     * {@code floorY}), sized so its longest side is {@code size} GUI pixels, turned to {@code yaw}
+     * and looked down on by {@code pitch} degrees.
+     *
+     * @return false when there is nothing to draw
+     */
+    public static boolean showroom(GuiGraphics g, String entityId, float cx, float floorY, float size, float yaw, float pitch) {
+        Entity entity = entity(entityId);
+        if (entity == null || g == null) {
+            return false;
+        }
+        ResourceLocation id = ResourceLocation.tryParse(entityId);
+        Minecraft mc = Minecraft.getInstance();
+        float span = Math.max(0.5F, Math.max(entity.getBbWidth(), entity.getBbHeight()));
+        float scale = Math.max(2.0F, size / span);
+        PoseStack poses = g.pose();
+        EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
+        boolean ok = true;
+        poses.pushPose();
+        try {
+            poses.translate(cx, floorY, 150.0F);
+            poses.mulPoseMatrix(new Matrix4f().scaling(scale, scale, -scale));
+            poses.mulPose(Axis.ZP.rotationDegrees(180.0F));
+            poses.mulPose(Axis.XP.rotationDegrees(-pitch));
+            poses.mulPose(Axis.YP.rotationDegrees(yaw));
+            entity.setYRot(0.0F);
+            entity.setXRot(0.0F);
+            entity.yRotO = 0.0F;
+            entity.xRotO = 0.0F;
+            entity.setPos(0.0D, 0.0D, 0.0D);
+            Lighting.setupForEntityInInventory();
+            dispatcher.setRenderShadow(false);
+            MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+            RenderSystem.runAsFancy(() ->
+                    dispatcher.render(entity, 0.0D, 0.0D, 0.0D, 0.0F, 1.0F, poses, buffers, 15728880));
+            buffers.endBatch();
+        } catch (Throwable broken) {
+            ok = false;
+            if (id != null) {
+                BROKEN.put(id, true);
+                CACHE.remove(id);
+            }
+            MlumInventory.LOGGER.warn("[{}] {} failed to render in the showroom: {}", MlumInventory.MODID, entityId,
+                    broken.toString());
+        } finally {
+            dispatcher.setRenderShadow(true);
+            Lighting.setupFor3DItems();
+            poses.popPose();
+        }
+        return ok;
+    }
+
+    /** The entity's width and height in blocks, or null when it cannot be previewed. */
+    @Nullable
+    public static float[] size(String entityId) {
+        Entity entity = entity(entityId);
+        return entity == null ? null : new float[]{entity.getBbWidth(), entity.getBbHeight()};
+    }
+
     /** The cached entities belong to the level they were made in. */
     public static void clear() {
         CACHE.clear();

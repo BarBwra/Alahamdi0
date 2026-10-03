@@ -57,6 +57,7 @@ public final class MlumCommands {
                 new Sub("downed", com.barbwra.mlum.downed.DownedCommand.build()),
                 new Sub("staff", com.barbwra.mlum.admin.StaffCommand.build()),
                 new Sub("ticket", com.barbwra.mlum.admin.StaffCommand.ticket()),
+                new Sub("dealer", com.barbwra.mlum.dealer.DealerCommand.build()),
         };
 
         for (Sub sub : subs) {
