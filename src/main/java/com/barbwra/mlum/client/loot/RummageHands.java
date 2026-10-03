@@ -37,6 +37,8 @@ public final class RummageHands {
     }
 
     private static final long RISE_MS = 200L;
+    /** How far above vanilla's map pose the hands sit. */
+    private static final float LIFT = 0.2F;
 
     private static boolean wasActive;
     private static long changedAt;
@@ -81,11 +83,11 @@ public final class RummageHands {
         double hz = fast() ? 2.8D : 1.7D;
         double t = Anim.enabled() ? (now / 1000.0D) * Math.PI * 2.0D * hz : 0.0D;
 
-        // vanilla's two-handed map: held low while looking ahead, brought up when looking down
-        float tilt = mapTilt(event.getInterpolatedPitch());
+        // vanilla's two-handed map pose, always in its raised form - the lowered one vanilla uses when
+        // looking straight ahead puts the hands below the screen - and lifted higher still, so they
+        // reach into the middle of the view the way hands in a cupboard would
         pose.pushPose();
-        pose.translate(0.0F, 0.04F + (1.0F - ease) * -1.2F + tilt * -0.5F, -0.72F);
-        pose.mulPose(Axis.XP.rotationDegrees(tilt * -85.0F));
+        pose.translate(0.0F, 0.04F + LIFT + (1.0F - ease) * -1.2F, -0.72F);
         for (HumanoidArm side : HumanoidArm.values()) {
             float f = side == HumanoidArm.RIGHT ? 1.0F : -1.0F;
             double phase = t + (side == HumanoidArm.RIGHT ? 0.0D : Math.PI);
@@ -109,11 +111,5 @@ public final class RummageHands {
             pose.popPose();
         }
         pose.popPose();
-    }
-
-    /** Vanilla's {@code calculateMapTilt}: 1 looking straight ahead, 0 from 45 degrees down. */
-    private static float mapTilt(float pitch) {
-        float f = Mth.clamp(1.0F - pitch / 45.0F + 0.1F, 0.0F, 1.0F);
-        return -Mth.cos(f * (float) Math.PI) * 0.5F + 0.5F;
     }
 }

@@ -131,6 +131,9 @@ public final class FieldHud {
             if (survival) {
                 pen.zoom(MARGIN, height - MARGIN, k);
                 wrist(pen, player, MARGIN + shake, height - MARGIN - WRIST_H, hp, accent, now);
+                if (com.barbwra.mlum.camo.GhillieClient.wearing() && !down) {
+                    camoNotice(pen, MARGIN, height - MARGIN - WRIST_H - 4 - NOTE_H, accent, now);
+                }
             }
             if (!down) {
                 // flat on your back the belt and the gun are out of reach; only the wrist stays.
@@ -294,6 +297,44 @@ public final class FieldHud {
         pen.rect(bx, y, Math.round(bw * food), 2, alpha(low ? RUST : WHEAT, blink(now, low)));
         for (int q = 1; q < 4; q++) {
             pen.rect(bx + Math.round(bw * q / 4.0F), y, 1, 2, 0xE60B0E0A);
+        }
+    }
+
+    /* ================================================================== the ghillie notice */
+
+    private static final int NOTE_H = 15;
+
+    /**
+     * Above the wrist device, for as long as a full ghillie suit is worn: how to vanish, how long is
+     * left while you hold still, and that you are hidden once you are.
+     */
+    private static void camoNotice(HudPen pen, float x, float y, int accent, long now) {
+        boolean hidden = com.barbwra.mlum.camo.GhillieClient.hidden();
+        boolean settling = com.barbwra.mlum.camo.GhillieClient.settling();
+        float progress = com.barbwra.mlum.camo.GhillieClient.progress();
+        int edge = hidden ? accent : WHEAT;
+        chamfer(pen, x, y, WRIST_W, NOTE_H, 0, 3, 0, 0, edge);
+        // a lamp on the left: steady when hidden, breathing while it counts, dim otherwise
+        float lamp = hidden ? 1.0F : settling ? 0.5F + 0.5F * Math.abs(Mth.sin(now / 200.0F)) : 0.35F;
+        pen.rect(x + 4, y + 5.5F, 4, 4, alpha(edge, lamp));
+        String text;
+        int colour;
+        if (hidden) {
+            text = "مختفي · لا تقوم ولا تبتعد";
+            colour = accent;
+        } else if (settling) {
+            int left = (int) Math.ceil((1.0F - progress) * com.barbwra.mlum.MlumConfig.hideSeconds());
+            text = "اثبت مكانك · تختفي بعد " + left;
+            colour = BONE;
+        } else {
+            text = "انزل بـ Shift واثبت " + com.barbwra.mlum.MlumConfig.hideSeconds() + " ثواني عشان تختفي";
+            colour = MUTED;
+        }
+        pen.text(pen.kufi(text, 5.0F, 600), x + 12, y + 10.0F, HudPen.LEFT, colour);
+        if (settling && !hidden) {
+            float bw = WRIST_W - 6;
+            pen.rect(x + 3, y + NOTE_H - 2, bw, 1, 0x26FFFFFF);
+            pen.rect(x + 3, y + NOTE_H - 2, bw * progress, 1, accent);
         }
     }
 

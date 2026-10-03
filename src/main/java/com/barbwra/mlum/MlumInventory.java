@@ -40,6 +40,10 @@ public class MlumInventory {
         ModMenus.MENUS.register(modBus);
         ModSounds.SOUNDS.register(modBus);
         com.barbwra.mlum.downed.ModEntities.ENTITIES.register(modBus);
+        if (net.minecraftforge.fml.ModList.get().isLoaded("tacz")) {
+            // only names TACZ's event classes when TACZ is there to load them
+            com.barbwra.mlum.downed.DownedTacz.register();
+        }
         modBus.addListener(this::commonSetup);
 
         ModLoadingContext.get().registerConfig(ModConfig.Type.SERVER, MlumConfig.SERVER_SPEC);

@@ -456,6 +456,7 @@ public final class McCanvas implements Canvas {
             entity.yHeadRotO = entity.getYRot();
             poses.pushPose();
             poses.translate(0.0F, 0.0F, z);
+            com.barbwra.mlum.client.downed.DownedClientEvents.portrait = true;
             InventoryScreen.renderEntityInInventory(g, cx, feet, scale, pose, camera, entity);
         } catch (Throwable broken) {
             // A cosmetic or armour mod failing to render must not take the menu with it - nor leave
@@ -466,6 +467,7 @@ public final class McCanvas implements Canvas {
                 graphics.set(graphicsBefore);
             }
         } finally {
+            com.barbwra.mlum.client.downed.DownedClientEvents.portrait = false;
             unwind(poses, top);
             entity.yBodyRot = oldBody;
             entity.setYRot(oldY);

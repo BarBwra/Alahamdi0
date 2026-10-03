@@ -6,6 +6,7 @@ import com.barbwra.mlum.client.gui.Anim;
 import com.barbwra.mlum.client.hud.HudVisibility;
 import com.barbwra.mlum.client.hud.field.HudPen;
 import com.barbwra.mlum.client.hud.field.SearchSpinner;
+import com.barbwra.mlum.client.ui.text.Shaped;
 import com.barbwra.mlum.network.C2SLootCancel;
 import com.barbwra.mlum.network.ModNetwork;
 import com.barbwra.mlum.network.S2CLootSearch;
@@ -86,6 +87,30 @@ public final class ClientLootSearch {
         }
     }
 
+    /**
+     * Under the spinner: a Shift keycap and what it does, so nobody has to be told the fast search
+     * exists. Held, it turns to a warning - fast, but something may fall.
+     */
+    private static void shiftHint(HudPen pen, float cx, float y) {
+        Shaped key = pen.pixel("SHIFT", 5.0F, 700);
+        Shaped label = fast ? pen.kufi("سريع · ممكن يطيح شي ويسمعونك", 5.0F, 600)
+                : pen.kufi("اضغط للتفتيش الأسرع", 5.0F, 600);
+        float kw = pen.width(key) + 6.0F;
+        float gap = 4.0F;
+        float total = kw + gap + pen.width(label);
+        float x = cx - total / 2.0F;
+        int edge = fast ? 0xFFD9623F : 0xFFECE6D4;
+        // the keycap: a dark key with a light rim and a heavier bottom edge
+        pen.rect(x, y - 6.0F, kw, 8.0F, 0xCC0F120D);
+        pen.rect(x, y - 6.0F, kw, 0.5F, edge);
+        pen.rect(x, y + 1.5F, kw, 0.5F, edge);
+        pen.rect(x, y - 6.0F, 0.5F, 8.0F, edge);
+        pen.rect(x + kw - 0.5F, y - 6.0F, 0.5F, 8.0F, edge);
+        pen.rect(x + 0.5F, y + 1.0F, kw - 1.0F, 0.5F, 0x66000000);
+        pen.text(key, x + kw / 2.0F, y, HudPen.CENTER, edge);
+        pen.shadowed(label, x + kw + gap, y + 0.5F, HudPen.LEFT, fast ? 0xFFD9623F : 0xFFA19E8B);
+    }
+
     public static void render(GuiGraphics graphics, float partialTick, int width, int height) {
         if (pos == null || HudVisibility.hidden()) {
             return;
@@ -95,6 +120,7 @@ public final class ClientLootSearch {
         try {
             SearchSpinner.draw(pen, width / 2.0F, height / 2.0F + height * 0.075F, height, startedAt,
                     fast ? 420.0F : 800.0F, paused, progress, MlumConfig.fieldHudAccent());
+            shiftHint(pen, width / 2.0F, height / 2.0F + height * 0.075F + height * 0.045F + 22.0F);
         } finally {
             pen.end();
         }

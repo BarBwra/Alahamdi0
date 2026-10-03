@@ -116,6 +116,8 @@ public final class MlumConfig {
         public final ForgeConfigSpec.ConfigValue<String> storeNote;
         public final ForgeConfigSpec.IntValue configVersion;
         public final ForgeConfigSpec.BooleanValue camouflage;
+        public final ForgeConfigSpec.IntValue hideSeconds;
+        public final ForgeConfigSpec.BooleanValue requireCover;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> greenSuit;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> snowSuit;
 
@@ -519,12 +521,19 @@ public final class MlumConfig {
             b.pop();
 
             b.comment("Camouflage (التمويه): a full ghillie suit hides its wearer completely - body, armour,",
-                    "what they hold, their shadow and their name - while they are in the right cover.",
-                    "Green: leaves, grass, crops, bushes, flowers and vines, or crouched on grass or moss.",
-                    "Snow: snow, powder snow and ice.").push("camouflage");
+                    "backpack, what they hold, their shadow and their name. Crouch and hold still for",
+                    "hideSeconds; a small shuffle does not count, standing up or walking off shows you.").push("camouflage");
             camouflage = b
                     .comment("Off: the suits are ordinary armour.")
                     .define("enabled", true);
+            hideSeconds = b
+                    .comment("How long a full suit has to stay crouched and still before it hides its wearer.")
+                    .defineInRange("hideSeconds", 5, 0, 120);
+            requireCover = b
+                    .comment("Also require matching cover: the green suit touching leaves, grass, crops,",
+                            "bushes, flowers or vines (or crouched on grass or moss), the snow suit in or on",
+                            "snow or ice. Off: the suit works anywhere.")
+                    .define("requireCover", false);
             greenSuit = b
                     .comment("The green suit, all four pieces. Every one must be worn.")
                     .defineList("greenSuit", List.of(
@@ -1399,6 +1408,14 @@ public final class MlumConfig {
     /** The field HUD's accent as opaque ARGB, re-parsed only when the config line changes. */
     public static boolean camouflage() {
         return !serverReady() || SERVER.camouflage.get();
+    }
+
+    public static int hideSeconds() {
+        return serverReady() ? SERVER.hideSeconds.get() : 5;
+    }
+
+    public static boolean camouflageNeedsCover() {
+        return serverReady() && SERVER.requireCover.get();
     }
 
     public static List<? extends String> greenSuit() {

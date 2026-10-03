@@ -265,6 +265,12 @@ public final class DownedClientEvents {
     }
 
     private static void whileDown(Minecraft mc) {
+        // no crawling off: whatever else pushes the player, they stay where they fell
+        LocalPlayer self = mc.player;
+        if (self != null) {
+            self.setSprinting(false);
+            self.setDeltaMovement(0.0D, Math.min(0.0D, self.getDeltaMovement().y), 0.0D);
+        }
         // no bag while down: the inventory key (E) calls the faction for help instead
         boolean call = false;
         while (mc.options.keyInventory.consumeClick()) {

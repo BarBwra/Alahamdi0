@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.10.0**, network protocol **14**.
+Last updated at **mlum 3.10.1**, network protocol **14**.
 
 ---
 
@@ -527,9 +527,20 @@ firearm card only draws when the field HUD is off. `HudPen` is a thin wrapper ov
   that clicks every 1.4 s while focused.
 - Gun details in the bag show the round it fires and the magazine size (`TaczAttachments.ammoOf`).
 - Quick access row runs left to right (3 on the left).
-- Ghillie suits (`camo/Ghillie`, `GhillieClient`): a full green or snow set touching its cover sets
-  the server-side invisible flag (hides body, shadow, name for everyone); other clients also skip
-  rendering armour and held items. Ids in `[camouflage]`.
+- Ghillie suits (`camo/Ghillie`, `GhillieClient`), reworked in 3.10.1: a full set, crouched and
+  still (within 1 block) for `hideSeconds` (5), sets the server-side invisible flag (hides body,
+  shadow, name); every client - the wearer's own third person included - then skips the whole
+  player render, so armour, held items and the Curios backpack go too. The bag screen's portraits
+  set `DownedClientEvents.portrait` to stay visible. `requireCover` (off) brings back the
+  leaves/snow rule. A notice above the wrist device shows how to hide, the count, and "hidden".
+
+### 3.10.1
+- Rummage hands: always vanilla's *raised* map pose plus a lift; the lowered pose vanilla uses
+  when looking straight ahead put them off screen, which is why searching showed no hands.
+- Search shows a Shift keycap hint under the spinner.
+- Downed players are held where they fell (server teleports back past 0.3 blocks; the client also
+  zeroes its own motion), the selected slot is moved off the two gun slots, and TACZ shoot/reload
+  events are cancelled while down (`DownedTacz`, registered only with TACZ present).
 
 ## 12. Open items
 

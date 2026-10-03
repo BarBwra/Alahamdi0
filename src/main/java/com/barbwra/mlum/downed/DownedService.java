@@ -96,13 +96,21 @@ public final class DownedService {
         final int total;
         @Nullable
         final DamageSource cause;
+        /** Where they went down; they are held to it. */
+        final double x;
+        final double z;
 
-        Down(int remaining, int total, @Nullable DamageSource cause) {
+        Down(int remaining, int total, @Nullable DamageSource cause, double x, double z) {
             this.remaining = remaining;
             this.total = total;
             this.cause = cause;
+            this.x = x;
+            this.z = z;
         }
     }
+
+    /** How far a downed player may drift from where they fell before being put back. */
+    private static final double DRIFT_SQ = 0.3D * 0.3D;
 
     private static final class Revive {
         final UUID reviver;
@@ -169,7 +177,8 @@ public final class DownedService {
     }
 
     private static void start(ServerPlayer player, int remaining, int total, @Nullable DamageSource cause) {
-        DOWNS.put(player.getUUID(), new Down(remaining, total, cause));
+        DOWNS.put(player.getUUID(), new Down(remaining, total, cause, player.getX(), player.getZ()));
+        holster(player);
         DownedState.setServer(player.getUUID(), true);
         player.stopRiding();
         player.closeContainer();
@@ -324,6 +333,7 @@ public final class DownedService {
                     bleedOut(player);
                     continue;
                 }
+                hold(player, d);
                 if (d.remaining % 10 == 0) {
                     sync(player);
                     dropTargets(player);
@@ -363,6 +373,35 @@ public final class DownedService {
                 reviver.getMainHandItem().shrink(1);
             }
             revive(r.target, reviver);
+        }
+    }
+
+    /**
+     * Keeps a downed player where they fell. The client already zeroes their movement keys, but a
+     * client cannot be trusted with that - and a knock or a current would slide them along too - so
+     * the server puts them back whenever they drift. Falling is left alone.
+     */
+    private static void hold(ServerPlayer player, Down d) {
+        double dx = player.getX() - d.x;
+        double dz = player.getZ() - d.z;
+        player.setSprinting(false);
+        if (dx * dx + dz * dz > DRIFT_SQ) {
+            player.setDeltaMovement(0.0D, Math.min(0.0D, player.getDeltaMovement().y), 0.0D);
+            player.connection.teleport(d.x, player.getY(), d.z, player.getYRot(), player.getXRot());
+        }
+    }
+
+    /**
+     * Puts the guns away: the selected slot moves off the two gun slots, so nothing is held up on
+     * the ground - and a TACZ gun, which fires through its own keys rather than the use button, has
+     * nothing to fire with.
+     */
+    private static void holster(ServerPlayer player) {
+        int slot = player.getInventory().selected;
+        if (slot < com.barbwra.mlum.menu.MlumMenu.WEAPON_SLOTS) {
+            player.getInventory().selected = com.barbwra.mlum.menu.MlumMenu.WEAPON_SLOTS;
+            player.connection.send(new net.minecraft.network.protocol.game.ClientboundSetCarriedItemPacket(
+                    com.barbwra.mlum.menu.MlumMenu.WEAPON_SLOTS));
         }
     }
 
