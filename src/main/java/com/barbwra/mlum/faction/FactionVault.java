@@ -37,6 +37,12 @@ public final class FactionVault {
     /** When each page was paid for, keyed by page. Absent means never bought. */
     private final Map<Integer, Long> purchasedAt = new HashMap<>();
 
+    /**
+     * Until when (wall clock, ms) every page after the first is rented. Page one is free and always
+     * open; the rest seal - their contents kept, untouched - the moment this runs out.
+     */
+    private long rentUntil;
+
     /** Lowest rank that may withdraw from a page. Absent means everyone. */
     private final Map<Integer, FactionRole> takeAccess = new HashMap<>();
 
@@ -89,6 +95,22 @@ public final class FactionVault {
      */
     public boolean isOpen(int page, int level, long now) {
         return FactionLevel.rowsOnPage(level, page) > 0 && isUnlocked(page, now);
+    }
+
+    /* ----------------------------------------------------------------------- rent */
+
+    public boolean rentActive(long now) {
+        return now < rentUntil;
+    }
+
+    /** Milliseconds of rent left; 0 when lapsed. */
+    public long rentLeft(long now) {
+        return Math.max(0L, rentUntil - now);
+    }
+
+    /** Adds whole days on top of whatever is left, or from now if it had lapsed. */
+    public void extendRent(int days, long now) {
+        rentUntil = Math.max(now, rentUntil) + days * 86_400_000L;
     }
 
     /* --------------------------------------------------------------------- access */
@@ -184,6 +206,7 @@ public final class FactionVault {
         CompoundTag view = new CompoundTag();
         viewAccess.forEach((page, role) -> view.putString(String.valueOf(page), role.name()));
         tag.put("ViewAccess", view);
+        tag.putLong("RentUntil", rentUntil);
 
         return tag;
     }
@@ -214,6 +237,8 @@ public final class FactionVault {
         for (String key : take.getAllKeys()) {
             vault.takeAccess.put(Integer.parseInt(key), FactionRole.byName(take.getString(key)));
         }
+
+        vault.rentUntil = tag.getLong("RentUntil");
 
         CompoundTag view = tag.getCompound("ViewAccess");
         for (String key : view.getAllKeys()) {

@@ -37,6 +37,20 @@ public final class FactionLevel {
     /** Slots in a row. Matches a vanilla container so the screen can reuse the same cell pitch. */
     public static final int COLUMNS = 9;
 
+    /** Rent for each page after the first, per real day, from the faction bank. */
+    public static final int RENT_PER_PAGE_DAY = 500;
+
+    /** The rent plans on offer, in days, and the discount (percent) each earns. */
+    public static final int[] RENT_DAYS = {1, 7, 20, 30};
+    public static final int[] RENT_OFF = {0, 5, 10, 15};
+
+    /** What a plan costs for a faction of this level: every page past the first, for that many days. */
+    public static long rentCost(int level, int plan) {
+        int extra = Math.max(0, pageCount(level) - 1);
+        long full = (long) extra * RENT_PER_PAGE_DAY * RENT_DAYS[plan];
+        return full * (100 - RENT_OFF[plan]) / 100;
+    }
+
     /**
      * A hard ceiling on levels, so a faction cannot grow a vault the screen cannot draw or the save
      * file cannot sensibly hold. Reaching it is not expected; it exists so the maths is total.

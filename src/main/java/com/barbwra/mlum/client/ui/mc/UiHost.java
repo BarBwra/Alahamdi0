@@ -118,8 +118,10 @@ public final class UiHost {
             };
             root.add(modal);
         }
-        root.add(Chrome.topBar(UiState.bar(page.tab(), hover, t)));
-        root.add(Chrome.footer(true, page.tab() == 0));
+        if (page.chrome()) {
+            root.add(Chrome.topBar(UiState.bar(page.tab(), hover, t)));
+            root.add(Chrome.footer(true, page.tab() == 0));
+        }
         Layout.layout(root, 0, 0, Px.W, Px.H);
 
         HITS.clear();

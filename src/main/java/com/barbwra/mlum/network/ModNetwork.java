@@ -79,8 +79,11 @@ public final class ModNetwork {
      * <p>14 -&gt; 15: the admin system - {@code S2CAdmin} and {@code C2SAdmin}.</p>
      *
      * <p>15 -&gt; 16: the vehicle dealership - {@code S2CDealer} and {@code C2SDealer}.</p>
+     *
+     * <p>16 -&gt; 17: {@code S2CGhillie}, who the ghillie suits are hiding; {@code C2SVaultRent}, and
+     * the vault's open buffer carries the rent, the bank and the level.</p>
      */
-    private static final String PROTOCOL = "16";
+    private static final String PROTOCOL = "17";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             MlumInventory.id("main"),
@@ -302,6 +305,16 @@ public final class ModNetwork {
                 .encoder(C2SDealer::encode)
                 .decoder(C2SDealer::decode)
                 .consumerMainThread(C2SDealer::handle)
+                .add();
+        CHANNEL.messageBuilder(S2CGhillie.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(S2CGhillie::encode)
+                .decoder(S2CGhillie::decode)
+                .consumerMainThread(S2CGhillie::handle)
+                .add();
+        CHANNEL.messageBuilder(C2SVaultRent.class, nextId++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(C2SVaultRent::encode)
+                .decoder(C2SVaultRent::decode)
+                .consumerMainThread(C2SVaultRent::handle)
                 .add();
 
     }

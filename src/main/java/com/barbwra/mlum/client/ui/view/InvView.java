@@ -65,6 +65,13 @@ public final class InvView {
         public boolean paged;
         /** A faction vault: the faction's name, shown on the door. */
         public String owner = "";
+        /** A faction vault's rent left (ms), the faction bank, who may pay, the faction level. */
+        public long rentLeft;
+        public int bank;
+        public boolean canPay;
+        public int level;
+        /** The viewer is an operator, whom unpaid pages do not stop. */
+        public boolean op;
         public int page;
         public int pages = 1;
         /**
@@ -156,9 +163,10 @@ public final class InvView {
         centre.alignSelf = CENTER;
         Node left = col().gap(14);
         if (m.chest != null && m.chest.paged) {
-            // a faction vault takes the whole column: the door is the point of it
-            left.add(VaultView.panel(m));
-        } else if (m.chest != null && m.chest.bodyId >= 0) {
+            // a faction vault is its own screen: the vault large, the bag beside it
+            return VaultView.screen(m);
+        }
+        if (m.chest != null && m.chest.bodyId >= 0) {
             // looting someone: them, with their gear on, over what they carry - no details panel
             left.add(bodyPanel(m));
             left.add(chestPanel(m));

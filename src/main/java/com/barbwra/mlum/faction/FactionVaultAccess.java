@@ -70,6 +70,11 @@ public final class FactionVaultAccess {
 
         FactionVaultContainer container = new FactionVaultContainer(data, faction, page, rows, admin);
         String title = faction.name();
+        long now = System.currentTimeMillis();
+        long rentLeft = faction.vault().rentLeft(now);
+        int bank = faction.bank();
+        FactionRole role = faction.contains(viewer.getUUID()) ? faction.roleOf(viewer.getUUID()) : null;
+        boolean canPay = role != null && role.canSpendBank();
 
         // The vault is the bag's own menu with the vault page where a chest would sit, so the
         // player works it with the whole bag beside it, exactly like a chest.
@@ -91,6 +96,11 @@ public final class FactionVaultAccess {
             buf.writeByte(1);
             buf.writeByte(page);
             buf.writeByte(pageCount);
+            // the rent, so the screen can show it and offer the plans
+            buf.writeLong(rentLeft);
+            buf.writeInt(bank);
+            buf.writeBoolean(canPay);
+            buf.writeVarInt(level);
         });
         return true;
     }
@@ -130,7 +140,43 @@ public final class FactionVaultAccess {
             tell(notify, "هذه الصفحة مغلقة - مستوى المنظمة " + level);
             return null;
         }
+        // every page past the first is rented; only a real operator walks past an unpaid one
+        if (page > 1 && !faction.vault().rentActive(System.currentTimeMillis())
+                && !com.barbwra.mlum.admin.Staff.isOp(viewer)) {
+            tell(notify, "الصفحة مقفلة - إيجار الخزنة منتهي");
+            return null;
+        }
         return faction;
+    }
+
+    /**
+     * Pays one of the rent plans from the faction bank, for the vault the player has open.
+     *
+     * @return the message to show; starts with "+" on success
+     */
+    public static String payRent(ServerPlayer viewer, UUID factionId, int plan) {
+        MinecraftServer server = viewer.getServer();
+        if (server == null || plan < 0 || plan >= FactionLevel.RENT_DAYS.length) {
+            return "طلب غلط";
+        }
+        FactionData data = FactionData.get(server);
+        Faction faction = data.byId(factionId);
+        if (faction == null || !faction.contains(viewer.getUUID())) {
+            return "أنت لست في هذه المنظمة";
+        }
+        if (!faction.roleOf(viewer.getUUID()).canSpendBank()) {
+            return "الدفع للقائد والنائب بس";
+        }
+        long cost = FactionLevel.rentCost(faction.level(), plan);
+        if (cost <= 0) {
+            return "ما عندكم صفحات تحتاج إيجار";
+        }
+        if (cost > Integer.MAX_VALUE || !faction.withdraw((int) cost)) {
+            return "فلوس المنظمة ما تكفي";
+        }
+        faction.vault().extendRent(FactionLevel.RENT_DAYS[plan], System.currentTimeMillis());
+        data.setDirty();
+        return "+تم دفع إيجار " + FactionLevel.RENT_DAYS[plan] + " يوم";
     }
 
     private static void tell(@Nullable ServerPlayer player, String message) {

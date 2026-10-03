@@ -17,6 +17,11 @@ public interface UiPage {
     /** {@code .main} for this frame, built from the model with {@code hover} already applied. */
     Node main(String hover);
 
+    /** The tab bar and the key hints along the bottom. A page that stands on its own turns them off. */
+    default boolean chrome() {
+        return true;
+    }
+
     /** A dialog over the page, or null. */
     default Node modal(String hover) {
         return null;

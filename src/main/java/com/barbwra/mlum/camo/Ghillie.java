@@ -184,12 +184,37 @@ public final class Ghillie {
         }
         boolean hide = settle != null && progress(settle, now) >= 1.0F;
         if (hide) {
-            HIDDEN.add(id);
+            if (HIDDEN.add(id)) {
+                broadcast(player.server);
+            }
             if (!player.isInvisible()) {
                 player.setInvisible(true);
             }
         } else if (HIDDEN.remove(id)) {
             player.setInvisible(player.hasEffect(MobEffects.INVISIBILITY));
+            broadcast(player.server);
+        }
+    }
+
+    /** Every client learns who is hidden; the invisible flag alone cannot say it was the suit. */
+    private static void broadcast(net.minecraft.server.MinecraftServer server) {
+        if (server == null) {
+            return;
+        }
+        List<Integer> ids = new java.util.ArrayList<>();
+        for (ServerPlayer p : server.getPlayerList().getPlayers()) {
+            if (HIDDEN.contains(p.getUUID())) {
+                ids.add(p.getId());
+            }
+        }
+        com.barbwra.mlum.network.ModNetwork.CHANNEL.send(net.minecraftforge.network.PacketDistributor.ALL.noArg(),
+                new com.barbwra.mlum.network.S2CGhillie(ids.stream().mapToInt(Integer::intValue).toArray()));
+    }
+
+    @SubscribeEvent
+    public static void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player && !HIDDEN.isEmpty()) {
+            broadcast(player.server);
         }
     }
 
@@ -198,6 +223,9 @@ public final class Ghillie {
         SETTLING.remove(event.getEntity().getUUID());
         if (HIDDEN.remove(event.getEntity().getUUID())) {
             event.getEntity().setInvisible(event.getEntity().hasEffect(MobEffects.INVISIBILITY));
+            if (event.getEntity() instanceof ServerPlayer player) {
+                broadcast(player.server);
+            }
         }
     }
 }

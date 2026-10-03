@@ -17,6 +17,8 @@ public final class Slots {
     public static final int ACTIVE = 2;
     public static final int HOT = 3;
     public static final int NOPE = 4;
+    /** An attachment mount the selected or carried attachment would go on: lit and breathing. */
+    public static final int FIT = 5;
     /**
      * An empty cell with the cursor on it.
      *
@@ -190,6 +192,26 @@ public final class Slots {
     /** {@code .att}: a 26px attachment mount, or its dashed empty state with a 2x ghost. */
     public static Node mount(Item it, String ghost, boolean hover, int state) {
         Node n = Css.leaf(26, 26).bg(Tok.SLOT);
+        if (state == FIT) {
+            float pulse = 0.5F + 0.5F * (float) Math.sin(com.barbwra.mlum.client.ui.mc.UiState.now() / 170.0D);
+            n.bg(Tok.rgba(0xf0a93b, 0.10 + 0.10 * pulse)).border(1.0F, Tok.AMBER);
+            n.under((c, nd) -> Draw.rasterClipped(c, com.barbwra.mlum.client.ui.Art.radial(0.9F),
+                    nd.x - 6, nd.y - 6, nd.w + 12, nd.h + 12, nd.x - 6, nd.y - 6, nd.x + nd.w + 6, nd.y + nd.h + 6,
+                    Draw.rgba(0xF0A93B, 0.25F + 0.25F * pulse)));
+            n.over((c, nd) -> {
+                if (it != null) {
+                    drawItem(c, it, nd.x + 4, nd.y + 4, 18, 18);
+                } else if (ghost != null) {
+                    int[] d = com.barbwra.mlum.client.ui.Art.dims(ghost);
+                    float gw = d[0] * 2;
+                    float gh = d[1] * 2;
+                    Draw.raster(c, com.barbwra.mlum.client.ui.Art.ghost(ghost), nd.x + (nd.w - gw) / 2.0F,
+                            nd.y + (nd.h - gh) / 2.0F, gw, gh, Draw.rgba(0xF0A93B, 0.55F + 0.35F * pulse));
+                }
+                Css.innerRing(c, nd, Draw.rgba(0xF0A93B, 0.4F + 0.5F * pulse));
+            });
+            return n;
+        }
         if (it != null) {
             n.border(1.0F, hover ? Tok.AMBER_DIM : Tok.rgb(0x2b3025));
             n.over((c, nd) -> {

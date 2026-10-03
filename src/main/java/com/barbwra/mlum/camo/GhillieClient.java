@@ -29,8 +29,9 @@ import net.minecraftforge.fml.common.Mod;
  *
  * <p><b>Drawing.</b> Vanilla keeps drawing armour, held items and every render layer - the Curios
  * backpack on the back among them - on an invisible player. For a player hidden by their suit the
- * whole render is skipped instead, so nothing of them shows. That includes yourself in third
- * person: hidden means hidden.</p>
+ * whole render is skipped instead and only the shimmer is drawn. Who counts as hidden comes from
+ * the server ({@code S2CGhillie}), never from the invisible flag: a potion or another mod making
+ * the wearer invisible must not skip the five-second wait.</p>
  *
  * <p><b>The shimmer.</b> Other players do not see nothing: close up, a hidden player is a faint
  * ripple in the air, like heat over a road - the body drawn almost clear, its outline wavering. It
@@ -53,12 +54,21 @@ public final class GhillieClient {
     public static void onRenderPlayer(RenderPlayerEvent.Pre event) {
         Player player = event.getEntity();
         // the bag screen's own portrait is drawn regardless, so you can still see what you wear
-        if (player.isInvisible() && Ghillie.suitOf(player) != null
-                && !com.barbwra.mlum.client.downed.DownedClientEvents.portrait) {
+        if (HIDDEN_IDS.contains(player.getId()) && !com.barbwra.mlum.client.downed.DownedClientEvents.portrait) {
             event.setCanceled(true);
-            if (player != Minecraft.getInstance().player && player instanceof AbstractClientPlayer other) {
-                shimmer(event, other);
+            if (player instanceof AbstractClientPlayer hidden) {
+                shimmer(event, hidden);
             }
+        }
+    }
+
+    /** Players the server says a suit is hiding. Only these vanish; any other invisibility is vanilla's. */
+    private static final java.util.Set<Integer> HIDDEN_IDS = new java.util.HashSet<>();
+
+    public static void receive(int[] ids) {
+        HIDDEN_IDS.clear();
+        for (int id : ids) {
+            HIDDEN_IDS.add(id);
         }
     }
 
@@ -71,17 +81,23 @@ public final class GhillieClient {
             return;
         }
         float pt = event.getPartialTick();
-        Vec3 eye = me.getEyePosition(pt);
-        Vec3 centre = p.getPosition(pt).add(0.0D, p.getBbHeight() * 0.5D, 0.0D);
-        double distance = eye.distanceTo(centre);
-        if (distance > SHIMMER_RANGE) {
-            return;
+        float alpha;
+        if (p == me) {
+            // yourself in third person: always the full shimmer, so you can see what others see
+            alpha = 0.2F;
+        } else {
+            Vec3 eye = me.getEyePosition(pt);
+            Vec3 centre = p.getPosition(pt).add(0.0D, p.getBbHeight() * 0.5D, 0.0D);
+            double distance = eye.distanceTo(centre);
+            if (distance > SHIMMER_RANGE) {
+                return;
+            }
+            double dot = me.getViewVector(pt).dot(centre.subtract(eye).normalize());
+            // a glance (25 degrees off) gets a quarter of it; looking right at them, all of it
+            float focus = Mth.clamp((float) ((dot - 0.9D) / 0.09D), 0.0F, 1.0F);
+            float near = 1.0F - (float) (distance / SHIMMER_RANGE);
+            alpha = near * near * (0.25F + 0.75F * focus) * 0.2F;
         }
-        double dot = me.getViewVector(pt).dot(centre.subtract(eye).normalize());
-        // a glance (25 degrees off) gets a quarter of it; looking right at them, all of it
-        float focus = Mth.clamp((float) ((dot - 0.9D) / 0.09D), 0.0F, 1.0F);
-        float near = 1.0F - (float) (distance / SHIMMER_RANGE);
-        float alpha = near * near * (0.25F + 0.75F * focus) * 0.2F;
         if (alpha < 0.008F) {
             return;
         }
@@ -212,6 +228,7 @@ public final class GhillieClient {
     @SubscribeEvent
     public static void onLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
         settle = null;
+        HIDDEN_IDS.clear();
     }
 
     /** Wearing a full suit right now. */
@@ -223,7 +240,7 @@ public final class GhillieClient {
     /** Hidden by the suit - what the server last said. */
     public static boolean hidden() {
         LocalPlayer player = Minecraft.getInstance().player;
-        return player != null && player.isInvisible() && Ghillie.suitOf(player) != null;
+        return player != null && HIDDEN_IDS.contains(player.getId());
     }
 
     /** 0..1 of the way there while crouched and still; 0 when not settling. */

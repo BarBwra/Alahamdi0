@@ -136,8 +136,15 @@ public class MlumMenu extends AbstractContainerMenu {
             this.vaultPage = Math.max(1, buf.readByte());
             this.vaultPages = Math.max(1, buf.readByte());
         }
-        // and after those by a downed body's loot screen
-        if (buf.readableBytes() >= 4) {
+        if (this.vault) {
+            // the vault's rent: time left, the faction bank, whether this player may pay, the level
+            this.rentLeft = buf.readLong();
+            this.vaultBank = buf.readInt();
+            this.canPayRent = buf.readBoolean();
+            this.factionLevel = buf.readVarInt();
+            this.openedAt = System.currentTimeMillis();
+        } else if (buf.readableBytes() >= 4) {
+            // and after those by a downed body's loot screen
             this.bodyId = buf.readInt();
         }
     }
@@ -316,6 +323,30 @@ public class MlumMenu extends AbstractContainerMenu {
 
     public boolean isVault() {
         return vault;
+    }
+
+    /* ---- the vault's rent, client side: what the server said when this page opened ---- */
+    private long rentLeft;
+    private int vaultBank;
+    private boolean canPayRent;
+    private int factionLevel;
+    private long openedAt;
+
+    /** Milliseconds of rent left right now. */
+    public long rentLeft() {
+        return Math.max(0L, rentLeft - (System.currentTimeMillis() - openedAt));
+    }
+
+    public int vaultBank() {
+        return vaultBank;
+    }
+
+    public boolean canPayRent() {
+        return canPayRent;
+    }
+
+    public int factionLevel() {
+        return factionLevel;
     }
 
     public int vaultPage() {

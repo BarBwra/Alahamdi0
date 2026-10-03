@@ -144,6 +144,9 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
         boolean turn = now - vaultGoneAt < 1500L;
         com.barbwra.mlum.client.ui.view.VaultView.dialAt = now;
         com.barbwra.mlum.client.ui.view.VaultView.doorAt = turn ? -1L : now;
+        if (turn) {
+            com.barbwra.mlum.client.ui.view.VaultView.openShutter();
+        }
         UiSounds.vault(!turn);
     }
 
@@ -195,7 +198,44 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
 
     @Override
     public Node modal(String hover) {
+        if (rentOpen && menu.isVault()) {
+            InvView.Chest ch = new InvView.Chest();
+            ch.pages = menu.vaultPages();
+            ch.rentLeft = menu.rentLeft();
+            ch.bank = menu.vaultBank();
+            ch.canPay = menu.canPayRent();
+            ch.level = menu.factionLevel();
+            return com.barbwra.mlum.client.ui.view.VaultView.rentModal(ch, hover);
+        }
         return UiState.storeModal(hover);
+    }
+
+    /** The vault stands on its own: no tab bar, no other menus to switch to. */
+    @Override
+    public boolean chrome() {
+        return !menu.isVault();
+    }
+
+    /** The vault's rent dialog is open. */
+    private boolean rentOpen;
+
+    /** Whether page {@code target} (1-based) is sealed for want of rent, as far as this client knows. */
+    private boolean sealed(int target) {
+        return target > 1 && menu.rentLeft() <= 0 && !com.barbwra.mlum.client.admin.ClientAdmin.op();
+    }
+
+    /** Turns the vault to {@code target}: the rent dialog for a sealed page, else the shutter and the turn. */
+    private void turnTo(int target) {
+        if (!menu.isVault() || target < 1 || target > menu.vaultPages() || target == menu.vaultPage()
+                || held != null || handsFull()) {
+            return;
+        }
+        if (sealed(target)) {
+            rentOpen = true;
+            return;
+        }
+        com.barbwra.mlum.client.ui.view.VaultView.closeShutter(target > menu.vaultPage() ? 1 : -1);
+        ModNetwork.CHANNEL.sendToServer(new C2SVaultPage(target));
     }
 
     @Override
@@ -330,6 +370,11 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
             }
             ch.paged = menu.isVault();
             ch.owner = menu.isVault() ? UiText.logical(this.title.getString()) : "";
+            ch.rentLeft = menu.rentLeft();
+            ch.bank = menu.vaultBank();
+            ch.canPay = menu.canPayRent();
+            ch.level = menu.factionLevel();
+            ch.op = com.barbwra.mlum.client.admin.ClientAdmin.op();
             ch.page = menu.vaultPage() - 1;
             ch.pages = menu.vaultPages();
             ch.bodyId = menu.bodyId();
@@ -366,7 +411,9 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
                 m.dropH = t.h;
                 m.dropOk = t.ok;
             }
-        } else if ("bgrid".equals(hover)) {
+        }
+        litMounts(m, inspect);
+        if (!holding && "bgrid".equals(hover)) {
             // Empty hands over an empty cell. "bgrid" is only ever the hover when no item node is
             // on top of the cursor, so this cannot light up a square that already holds something.
             int[] cell = cellAt(UiHost.mouseX, UiHost.mouseY);
@@ -376,6 +423,33 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
             }
         }
         return m;
+    }
+
+    /**
+     * An attachment that is selected, carried or pointed at lights every mount it would go on, on
+     * both guns, so where it belongs can be seen before it is moved.
+     */
+    private void litMounts(InvView.Model m, ItemStack stack) {
+        if (stack.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < MlumMenu.WEAPON_SLOTS; i++) {
+            if (menu.getWeapon(i).isEmpty()) {
+                continue;
+            }
+            for (int k = 0; k < 6; k++) {
+                int index = menu.attachmentStart + i * AttachmentContainer.PER_GUN + VIEW_TO_SLOT[k];
+                if (index >= menu.slots.size()) {
+                    continue;
+                }
+                Slot slot = menu.slots.get(index);
+                String key = "att:" + i + ":" + k;
+                if (slot instanceof AttachmentSlot && slot.getItem() != stack && !m.verdicts.containsKey(key)
+                        && slot.mayPlace(stack)) {
+                    m.verdicts.put(key, Slots.FIT);
+                }
+            }
+        }
     }
 
     private static String ghostOf(AttachmentType type) {
@@ -681,10 +755,23 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
         }
         if (id.equals("pg:-1") || id.equals("pg:1") || (id.startsWith("vpg:") && hit.data instanceof Integer)) {
             int target = id.startsWith("vpg:") ? (Integer) hit.data + 1 : menu.vaultPage() + (id.equals("pg:1") ? 1 : -1);
-            if (menu.isVault() && target >= 1 && target <= menu.vaultPages() && held == null && !handsFull()) {
-                UiState.startFx(true, true);
-                ModNetwork.CHANNEL.sendToServer(new C2SVaultPage(target));
-            }
+            turnTo(target);
+            return true;
+        }
+        if (id.equals("vrent.open")) {
+            rentOpen = true;
+            return true;
+        }
+        if (rentOpen && (id.equals("close") || id.equals("modal-bg"))) {
+            rentOpen = false;
+            return true;
+        }
+        if (rentOpen && id.startsWith("vrent:")) {
+            ModNetwork.CHANNEL.sendToServer(new com.barbwra.mlum.network.C2SVaultRent(Integer.parseInt(id.substring(6))));
+            rentOpen = false;
+            return true;
+        }
+        if (rentOpen) {
             return true;
         }
         if (id.startsWith("bag:") && hit.data instanceof Integer i) {
@@ -1146,6 +1233,10 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
             }
         }
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            if (rentOpen) {
+                rentOpen = false;
+                return true;
+            }
             if (UiState.storeEscape()) {
                 return true;
             }
@@ -1161,6 +1252,11 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
             return true;
         }
         int dir = UiScreens.navDirection(keyCode, scanCode);
+        if (dir != 0 && menu.isVault()) {
+            // in the vault, A and D turn its pages instead: A (left) is the next one
+            turnTo(menu.vaultPage() + (dir > 0 ? 1 : -1));
+            return true;
+        }
         if (dir != 0) {
             if (held == null && !handsFull()) {
                 UiState.keyHit(dir > 0 ? 'a' : 'd');
