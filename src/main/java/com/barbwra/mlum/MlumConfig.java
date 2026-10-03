@@ -627,19 +627,12 @@ public final class MlumConfig {
         public final ForgeConfigSpec.BooleanValue themedTitle;
         public final ForgeConfigSpec.BooleanValue themedLoading;
         public final ForgeConfigSpec.BooleanValue themedCrafting;
-        public final ForgeConfigSpec.BooleanValue sidebar;
-        public final ForgeConfigSpec.ConfigValue<String> serverName;
         public final ForgeConfigSpec.ConfigValue<String> serverAddress;
-        public final ForgeConfigSpec.ConfigValue<String> newsUrl;
-        public final ForgeConfigSpec.ConfigValue<List<? extends String>> news;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> tips;
         public final ForgeConfigSpec.BooleanValue shoulderCamera;
         public final ForgeConfigSpec.DoubleValue shoulderOffset;
         public final ForgeConfigSpec.DoubleValue shoulderDistance;
         public final ForgeConfigSpec.BooleanValue aimMarker;
-        public final ForgeConfigSpec.BooleanValue itemPhysics;
-        public final ForgeConfigSpec.BooleanValue inspectItem;
-        public final ForgeConfigSpec.BooleanValue smoothDoors;
         public final ForgeConfigSpec.BooleanValue healthFeel;
         public final ForgeConfigSpec.BooleanValue healthMuffle;
         public final ForgeConfigSpec.ConfigValue<String> fieldHudAccent;
@@ -762,10 +755,6 @@ public final class MlumConfig {
             lootMarkerRange = b
                     .comment("How far away a container gets its marker, in blocks.")
                     .defineInRange("lootMarkerRange", 10, 2, 32);
-            sidebar = b
-                    .comment("The side panel on the right: server name, money, faction, players online.",
-                            "Its key (J by default) shows and hides it while playing.")
-                    .define("sidebar", true);
             b.pop();
 
             b.comment("The game's own screens, redrawn in the bag's look.").push("screens");
@@ -773,20 +762,10 @@ public final class MlumConfig {
             themedTitle = b.comment("The title screen you see when the game starts.").define("title", true);
             themedLoading = b.comment("Connecting, loading terrain and saving.").define("loading", true);
             themedCrafting = b.comment("The crafting table, with the list of what you can make beside it.").define("crafting", true);
-            serverName = b
-                    .comment("The name the title screen, loading screen and side panel show.")
-                    .define("serverName", "Mlife");
             serverAddress = b
                     .comment("The server the title screen's big button joins directly, e.g. play.example.com",
                             "or 1.2.3.4:25565. Blank opens the server list instead.")
                     .define("serverAddress", "");
-            newsUrl = b
-                    .comment("A plain text file on the web with the news, one line each, e.g. a raw GitHub or",
-                            "pastebin link. Read when the title screen opens; blank uses the lines below.")
-                    .define("newsUrl", "");
-            news = b
-                    .comment("The news panel's lines when there is no newsUrl, or it cannot be reached.")
-                    .defineList("news", List.of("مرحبا بك في Mlife", "ادخل السيرفر وابدأ قصتك"), entry -> entry instanceof String);
             tips = b
                     .comment("One of these shows on the loading screen each time.")
                     .defineList("tips", List.of(
@@ -812,15 +791,6 @@ public final class MlumConfig {
                     .comment("In the shoulder camera, a mark where you are actually aiming - where a gun's",
                             "bullet goes and what a click would hit - since that is no longer the middle.")
                     .define("aimMarker", true);
-            itemPhysics = b
-                    .comment("Things on the ground lie flat and still instead of floating and spinning.")
-                    .define("itemPhysics", true);
-            inspectItem = b
-                    .comment("Holding the inspect key (G by default) brings what is in your hand up to look at.")
-                    .define("inspectItem", true);
-            smoothDoors = b
-                    .comment("Doors and trapdoors swing open and shut instead of snapping.")
-                    .define("smoothDoors", true);
             healthFeel = b
                     .comment("At low health the edges of the screen darken red and the colour drains.")
                     .define("healthFeel", true);
@@ -944,7 +914,6 @@ public final class MlumConfig {
         }
         return gunItemsCache;
     }
-
 
     public static boolean grantQuestItems() {
         return !serverReady() || SERVER.grantQuestItems.get();
@@ -1456,7 +1425,6 @@ public final class MlumConfig {
         return serverReady() ? SERVER.maxOwnedVehicles.get() : 24;
     }
 
-
     public static boolean showPlayerModel() {
         return !clientReady() || CLIENT.showPlayerModel.get();
     }
@@ -1533,18 +1501,6 @@ public final class MlumConfig {
         return !clientReady() || CLIENT.aimMarker.get();
     }
 
-    public static boolean itemPhysics() {
-        return clientReady() && CLIENT.itemPhysics.get();
-    }
-
-    public static boolean inspectItem() {
-        return !clientReady() || CLIENT.inspectItem.get();
-    }
-
-    public static boolean smoothDoors() {
-        return clientReady() && CLIENT.smoothDoors.get();
-    }
-
     public static boolean healthFeel() {
         return clientReady() && CLIENT.healthFeel.get();
     }
@@ -1553,24 +1509,12 @@ public final class MlumConfig {
         return clientReady() && CLIENT.healthMuffle.get();
     }
 
-    public static boolean sidebar() {
-        return !clientReady() || CLIENT.sidebar.get();
-    }
-
     public static String serverName() {
-        return clientReady() ? CLIENT.serverName.get() : "Mlife";
+        return "Mlum";
     }
 
     public static String serverAddress() {
         return clientReady() ? CLIENT.serverAddress.get() : "";
-    }
-
-    public static String newsUrl() {
-        return clientReady() ? CLIENT.newsUrl.get() : "";
-    }
-
-    public static List<? extends String> news() {
-        return clientReady() ? CLIENT.news.get() : CLIENT.news.getDefault();
     }
 
     public static List<? extends String> tips() {

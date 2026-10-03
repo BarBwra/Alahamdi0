@@ -2,7 +2,6 @@ package com.barbwra.mlum.client.screens;
 
 import com.barbwra.mlum.MlumConfig;
 import com.barbwra.mlum.client.hud.field.HudPen;
-import com.barbwra.mlum.client.ui.mc.UiText;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.ConnectScreen;
@@ -18,75 +17,21 @@ import net.minecraft.network.chat.Component;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
-
 /**
- * The title screen: the vanilla panorama still turning behind, the server's name over it, one big
- * button straight into the server, and the news beside it.
+ * The title screen: the vanilla panorama still turning behind, the server's name over it and one big
+ * button straight into the server.
  *
  * <p>The big button joins {@code serverAddress} from the client config directly; with no address
- * it opens the server list. The news is read once from {@code newsUrl} - any plain text file on
- * the web, one line each - so the server owner can change it without touching anyone's game; until
- * it arrives, or if it cannot be reached, the lines in the config are shown.</p>
+ * it opens the server list.</p>
  */
 @OnlyIn(Dist.CLIENT)
 public class MlifeTitleScreen extends Screen {
 
     private final ScreenKit kit = new ScreenKit();
     private final PanoramaRenderer panorama = new PanoramaRenderer(TitleScreen.CUBE_MAP);
-    private static volatile List<String> fetched;
-    private static boolean asked;
 
     public MlifeTitleScreen() {
         super(Component.translatable("narrator.screen.title"));
-    }
-
-    @Override
-    protected void init() {
-        if (!asked) {
-            asked = true;
-            fetchNews();
-        }
-    }
-
-    private static void fetchNews() {
-        String url = MlumConfig.newsUrl().trim();
-        if (url.isEmpty()) {
-            return;
-        }
-        try {
-            HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-            HttpRequest req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(8)).GET().build();
-            client.sendAsync(req, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)).thenAccept(resp -> {
-                if (resp.statusCode() / 100 != 2) {
-                    return;
-                }
-                List<String> lines = new ArrayList<>();
-                for (String line : resp.body().split("\\R")) {
-                    if (!line.isBlank() && lines.size() < 8) {
-                        lines.add(line.trim());
-                    }
-                }
-                fetched = lines;
-            });
-        } catch (Exception bad) {
-            // no news is fine
-        }
-    }
-
-    private List<String> news() {
-        List<String> f = fetched;
-        if (f != null && !f.isEmpty()) {
-            return f;
-        }
-        return new ArrayList<>(MlumConfig.news());
     }
 
     @Override
@@ -95,7 +40,7 @@ public class MlifeTitleScreen extends Screen {
         kit.begin(g);
         try {
             kit.shade(width, height, 0.85F);
-            float cx = width * 0.42F;
+            float cx = width * 0.5F;
             float titleY = height * 0.3F;
             kit.wordmark(MlumConfig.serverName(), cx, titleY, 34.0F);
             kit.pen.text(kit.pen.kufi("سيرفر بقاء عربي", 6.0F, 600), cx, titleY + 13.0F, HudPen.CENTER, ScreenKit.MUTED);
@@ -107,27 +52,19 @@ public class MlifeTitleScreen extends Screen {
             kit.button("play", direct ? "ادخل السيرفر" : "السيرفرات", x, y, bw, 24.0F, ScreenKit.FILLED, mouseX, mouseY);
             y += 30.0F;
             float half = (bw - 5.0F) / 2.0F;
-            kit.button("servers", "السيرفرات", x + half + 5.0F, y, half, 17.0F, ScreenKit.GHOST, mouseX, mouseY);
-            kit.button("single", "عالم فردي", x, y, half, 17.0F, ScreenKit.GHOST, mouseX, mouseY);
+            if (direct) {
+                kit.button("servers", "السيرفرات", x + half + 5.0F, y, half, 17.0F, ScreenKit.GHOST, mouseX, mouseY);
+                kit.button("single", "عالم فردي", x, y, half, 17.0F, ScreenKit.GHOST, mouseX, mouseY);
+            } else {
+                // the big button already is the server list, so this row does not offer it twice
+                kit.button("single", "عالم فردي", x, y, bw, 17.0F, ScreenKit.GHOST, mouseX, mouseY);
+            }
             y += 22.0F;
             kit.button("options", "الإعدادات", x + half + 5.0F, y, half, 17.0F, ScreenKit.GHOST, mouseX, mouseY);
             kit.button("mods", "المودات", x, y, half, 17.0F, ScreenKit.GHOST, mouseX, mouseY);
             y += 22.0F;
             kit.button("quit", "اطلع من اللعبة", x, y, bw, 17.0F, ScreenKit.GHOST, mouseX, mouseY);
 
-            // the news
-            float nw = Math.min(170.0F, width * 0.3F);
-            float nx = width - 14.0F - nw;
-            float ny = height * 0.24F;
-            List<String> lines = news();
-            float nh = 22.0F + lines.size() * 13.0F;
-            kit.panel(nx, ny, nw, nh);
-            kit.heading("الأخبار", nx + nw - 6.0F, ny + 11.0F);
-            for (int i = 0; i < lines.size(); i++) {
-                float ly = ny + 25.0F + i * 13.0F;
-                kit.pen.rect(nx + nw - 8.0F, ly - 3.5F, 1.5F, 1.5F, ScreenKit.AMBER);
-                kit.pen.text(kit.pen.kufi(UiText.logical(lines.get(i)), 5.5F, 600), nx + nw - 12.0F, ly, HudPen.RIGHT, ScreenKit.SOFT);
-            }
             kit.pen.text(kit.pen.pixel("MINECRAFT " + SharedConstants.getCurrentVersion().getName() + " · FORGE", 5.0F, 600),
                     6.0F, height - 6.0F, HudPen.LEFT, ScreenKit.FAINT);
         } finally {

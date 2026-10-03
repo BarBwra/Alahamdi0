@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.12.0**, network protocol **15**.
+Last updated at **mlum 3.12.1**, network protocol **15**.
 
 ---
 
@@ -569,27 +569,21 @@ firearm card only draws when the field HUD is off. `HudPen` is a thin wrapper ov
 ### 3.11.0 — themed screens (`client/screens/`)
 `ScreenSwap` replaces the ESC menu, the title screen and the crafting table screen in
 `ScreenEvent.Opening`, and paints over connecting / loading / saving screens in `Render.Pre`.
-`Sidebar` is a small card on the right (J). Client config `[screens]`: each screen on/off,
-`serverName`, `serverAddress` (title's big button joins it directly), `newsUrl` (a raw text file,
-one line per item), `news`, `tips`.
+The server's name is fixed as **Mlum** (`MlumConfig.serverName()`). Client config `[screens]`: each
+screen on/off, `serverAddress` (title's big button joins it directly), `tips`. The news panel and
+the side panel were built and then removed at the user's request - do not bring them back.
 
 ### 3.12.0 — feel (`client/feel/`, client config `[feel]`)
 - **Shoulder camera** (`ShoulderCamera`): in F5-back the camera is moved to a shoulder inside
   `ViewportEvent.ComputeCameraAngles` via `Camera.setPosition` (SRG `m_90581_`, reflection; disables
   itself if that fails), wall-clipped from eight corners. X swaps sides. An aim mark is drawn where
   the eye ray lands (where TACZ bullets go): a ring with a gun, a dot otherwise, red on an entity.
-- **Item physics** (`FlatItemRenderer`, replaces the ITEM entity renderer): items lie flat at a
-  per-entity angle, blocks sit on the floor, only falling items tumble. Rendering only.
-- **Inspect** (`InspectItem`): with TACZ installed it reads TACZ's own inspect key (H) and acts only
-  when the hand is not a gun; without TACZ it registers `key.mlum.inspect` on H.
-- **Smooth doors** (`SmoothDoors`): doors/trapdoors within 12 blocks are tracked; on a change the
-  client-side block becomes air for 230 ms while the closed model is drawn rotating about the hinge
-  (the overlap of the closed and open shapes). A server resend of the same state is re-hidden; any
-  other state ends the swing. Flooded trapdoors are skipped.
+- Flat dropped items, an inspect key and swinging doors were built in 3.12.0 and removed again
+  in 3.12.1 at the user's request - do not bring them back.
 - **UI sounds**: `ui.hover/click/open/close` (synthesised oggs) from `UiHost` and `ScreenKit`.
 - **Health feel** (`HealthFeel`): under 35% health a red vignette (vanilla texture, darkening blend),
   heartbeat (`feel.heartbeat`) and world sounds muffled up to 60% (`PlaySoundEvent` wrapper).
-- Keys moved off TACZ defaults: admin panel O→K, side panel H→J (TACZ uses H inspect, O interact).
+- Admin panel key moved O→K, off TACZ's interact key.
 
 ## 12. Open items
 

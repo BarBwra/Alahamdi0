@@ -226,7 +226,7 @@ public class TerminalScreen extends Screen {
         GuiDraw.hazard(g, left + 2, top + 15, panelW - 4, 2, Theme.accent(), 0x55);
         g.fill(left + 2, top + 17, left + panelW - 2, top + 18, Theme.accent(140));
 
-        GuiDraw.glowLeft(g, font, "MLIFE // WAREHOUSE OPS", left + 9, top + 4, Theme.accent());
+        GuiDraw.glowLeft(g, font, "MLUM // WAREHOUSE OPS", left + 9, top + 4, Theme.accent());
         GuiDraw.glowRight(g, font, snap.balance() + "$", left + panelW - 9, top + 4, Theme.SUCCESS);
 
         if (snap.eventEndsAt() > System.currentTimeMillis()) {

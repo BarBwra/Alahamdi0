@@ -43,8 +43,6 @@ public final class ClientSetup {
     public static void onRegisterRenderers(net.minecraftforge.client.event.EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(com.barbwra.mlum.downed.ModEntities.DOWNED_DUMMY.get(),
                 com.barbwra.mlum.client.downed.DownedDummyRenderer::new);
-        event.registerEntityRenderer(net.minecraft.world.entity.EntityType.ITEM,
-                com.barbwra.mlum.client.feel.FlatItemRenderer::new);
     }
 
     @SubscribeEvent
