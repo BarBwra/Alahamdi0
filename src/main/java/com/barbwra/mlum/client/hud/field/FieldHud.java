@@ -131,9 +131,12 @@ public final class FieldHud {
             if (survival) {
                 pen.zoom(MARGIN, height - MARGIN, k);
                 wrist(pen, player, MARGIN + shake, height - MARGIN - WRIST_H, hp, accent, now);
-                if (com.barbwra.mlum.camo.GhillieClient.wearing() && !down) {
-                    camoNotice(pen, MARGIN, height - MARGIN - WRIST_H - 4 - NOTE_H, accent, now);
-                }
+            }
+            if (com.barbwra.mlum.camo.GhillieClient.wearing() && !down) {
+                // above the wrist device; with no wrist (creative) it takes the wrist's corner
+                pen.zoom(MARGIN, height - MARGIN, k);
+                float base = survival ? height - MARGIN - WRIST_H - 4 : height - MARGIN;
+                camoNotice(pen, MARGIN, base - noteHeight(), accent, now);
             }
             if (!down) {
                 // flat on your back the belt and the gun are out of reach; only the wrist stays.
@@ -303,38 +306,69 @@ public final class FieldHud {
     /* ================================================================== the ghillie notice */
 
     private static final int NOTE_H = 15;
+    private static final int TIMER_H = 30;
+
+    private static float noteHeight() {
+        boolean counting = com.barbwra.mlum.camo.GhillieClient.settling() && !com.barbwra.mlum.camo.GhillieClient.hidden();
+        return counting ? TIMER_H : NOTE_H;
+    }
 
     /**
-     * Above the wrist device, for as long as a full ghillie suit is worn: how to vanish, how long is
-     * left while you hold still, and that you are hidden once you are.
+     * Above the wrist device, for as long as a full ghillie suit is worn.
+     *
+     * <ul>
+     *   <li>not crouched: one muted line saying how to vanish;</li>
+     *   <li>crouched and still: the timer - a ring running down round the seconds left, and what
+     *       breaks it (moving, letting go of Shift);</li>
+     *   <li>hidden: a steady lamp and the word.</li>
+     * </ul>
      */
     private static void camoNotice(HudPen pen, float x, float y, int accent, long now) {
         boolean hidden = com.barbwra.mlum.camo.GhillieClient.hidden();
         boolean settling = com.barbwra.mlum.camo.GhillieClient.settling();
         float progress = com.barbwra.mlum.camo.GhillieClient.progress();
-        int edge = hidden ? accent : WHEAT;
-        chamfer(pen, x, y, WRIST_W, NOTE_H, 0, 3, 0, 0, edge);
-        // a lamp on the left: steady when hidden, breathing while it counts, dim otherwise
-        float lamp = hidden ? 1.0F : settling ? 0.5F + 0.5F * Math.abs(Mth.sin(now / 200.0F)) : 0.35F;
-        pen.rect(x + 4, y + 5.5F, 4, 4, alpha(edge, lamp));
-        String text;
-        int colour;
-        if (hidden) {
-            text = "مختفي · لا تقوم ولا تبتعد";
-            colour = accent;
-        } else if (settling) {
-            int left = (int) Math.ceil((1.0F - progress) * com.barbwra.mlum.MlumConfig.hideSeconds());
-            text = "اثبت مكانك · تختفي بعد " + left;
-            colour = BONE;
-        } else {
-            text = "انزل بـ Shift واثبت " + com.barbwra.mlum.MlumConfig.hideSeconds() + " ثواني عشان تختفي";
-            colour = MUTED;
-        }
-        pen.text(pen.kufi(text, 5.0F, 600), x + 12, y + 10.0F, HudPen.LEFT, colour);
+        int seconds = com.barbwra.mlum.MlumConfig.hideSeconds();
         if (settling && !hidden) {
-            float bw = WRIST_W - 6;
-            pen.rect(x + 3, y + NOTE_H - 2, bw, 1, 0x26FFFFFF);
-            pen.rect(x + 3, y + NOTE_H - 2, bw * progress, 1, accent);
+            chamfer(pen, x, y, WRIST_W, TIMER_H, 0, 3, 0, 0, WHEAT);
+            float cx = x + 15.0F;
+            float cy = y + TIMER_H / 2.0F;
+            float left = 1.0F - progress;
+            Shapes.disc(pen, cx, cy, 11.5F, 0x59000000);
+            Shapes.ring(pen, cx, cy, 9.5F, 2.0F, 0x24FFFFFF);
+            Shapes.arc(pen, cx, cy, 9.5F, 2.0F, 0.0F, left, left < 0.2F ? accent : WHEAT);
+            int remain = Math.max(1, (int) Math.ceil(left * seconds));
+            pen.text(pen.pixel(String.valueOf(remain), 11.0F, 700), cx, cy + 4.0F, HudPen.CENTER, BONE);
+            pen.text(pen.kufi("تختفي بعد " + remain + " ث", 5.5F, 700), x + 31, y + 12.0F, HudPen.LEFT, BONE);
+            pen.text(pen.kufi("لا تتحرك ولا تفك Shift", 4.6F, 600), x + 31, y + 21.0F, HudPen.LEFT, MUTED);
+            float bw = WRIST_W - 34;
+            pen.rect(x + 31, y + TIMER_H - 4, bw, 1, 0x26FFFFFF);
+            pen.rect(x + 31, y + TIMER_H - 4, bw * progress, 1, WHEAT);
+            return;
+        }
+        int edge = hidden ? accent : FAINT;
+        chamfer(pen, x, y, WRIST_W, NOTE_H, 0, 3, 0, 0, edge);
+        float lamp = hidden ? 0.75F + 0.25F * Math.abs(Mth.sin(now / 600.0F)) : 0.35F;
+        pen.rect(x + 4, y + 5.5F, 4, 4, alpha(edge, lamp));
+        String text = hidden ? "مختفي · أي حركة تكشفك" : "Shift واثبت " + seconds + " ثواني عشان تختفي";
+        pen.text(pen.kufi(text, 5.0F, 600), x + 12, y + 10.0F, HudPen.LEFT, hidden ? accent : MUTED);
+    }
+
+    /** The notice alone, for when the field HUD is switched off. */
+    public static void ghillieOnly(GuiGraphics graphics, int width, int height) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null || HudVisibility.hidden() || !com.barbwra.mlum.camo.GhillieClient.wearing()
+                || com.barbwra.mlum.client.downed.ClientDowned.selfDowned()) {
+            return;
+        }
+        float k = MlumConfig.fieldHudScale();
+        HudPen pen = PEN;
+        pen.begin(graphics);
+        try {
+            pen.zoom(MARGIN, height - MARGIN, k);
+            camoNotice(pen, MARGIN, height - MARGIN - 26 - noteHeight(), MlumConfig.fieldHudAccent(), Anim.now());
+        } finally {
+            pen.unzoom();
+            pen.end();
         }
     }
 

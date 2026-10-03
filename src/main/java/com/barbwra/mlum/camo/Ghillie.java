@@ -36,11 +36,10 @@ import java.util.UUID;
  * Ghillie suits: a full set hides its wearer once they settle in.
  *
  * <h2>The rule</h2>
- * <p>All four pieces of one suit, then crouch and hold still for {@code hideSeconds}. A little
- * shuffle - less than {@link #DRIFT} from where you settled - does not count; standing up or moving
- * further shows you again, and the count starts over. With {@code requireCover} on, the suit also
- * needs its kind of cover: the green one in leaves, grass, crops, bushes, flowers or vines, the snow
- * one in or on snow and ice.</p>
+ * <p>All four pieces of one suit, then crouch and hold still for {@code hideSeconds}. Moving at all
+ * (beyond {@link #DRIFT}) or letting go of Shift shows you again, and the count starts over. With
+ * {@code requireCover} on, the suit also needs its kind of cover: the green one in leaves, grass,
+ * crops, bushes, flowers or vines, the snow one in or on snow and ice.</p>
  *
  * <h2>How the hiding works</h2>
  * <p>The server sets the player's own invisible flag while they are hidden. That one flag is synced
@@ -66,8 +65,11 @@ public final class Ghillie {
     /** Where each settling player crouched, and on which tick. */
     private static final Map<UUID, Settle> SETTLING = new HashMap<>();
 
-    /** How far a settled player may shuffle, in blocks, without it counting as moving. */
-    public static final double DRIFT = 1.0D;
+    /**
+     * How far a settled player may slip, in blocks, without it counting as moving. Only enough to
+     * absorb the jitter of crouching on a block edge: a step of any kind starts the count over.
+     */
+    public static final double DRIFT = 0.15D;
 
     /** A crouch in progress: where it started and when. */
     public record Settle(double x, double z, long since) {
