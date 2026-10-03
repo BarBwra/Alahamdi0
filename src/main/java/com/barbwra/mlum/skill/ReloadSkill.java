@@ -6,7 +6,7 @@ import net.minecraft.world.entity.player.Player;
 import java.util.function.ToIntFunction;
 
 /**
- * The تعبئة أسرع skill: a gun reloads 20, 50 or 100 percent faster.
+ * The تعبئة أسرع skill: a gun reloads 15, 30 or 45 percent faster.
  *
  * <h2>How TACZ times a reload</h2>
  * <p>A reload is not a countdown. When it starts TACZ writes down the time, and every tick its gun
@@ -14,8 +14,8 @@ import java.util.function.ToIntFunction;
  * answer against the gun pack's numbers: feed the rounds at 1.4 s, finish at 1.87 s. Every gun,
  * every pack, every script goes through that one question.</p>
  *
- * <p>So the skill answers it with a longer time than has really passed. At +100% one real second
- * reads as two, the rounds go in at 0.7 s instead of 1.4 s, and nothing about the gun's data has to
+ * <p>So the skill answers it with a longer time than has really passed. At +45% one real second
+ * reads as 1.45, the rounds go in at 0.97 s instead of 1.4 s, and nothing about the gun's data has to
  * change. The client does the same to the reload animation so the hands keep up with the rounds.</p>
  */
 public final class ReloadSkill {
@@ -24,7 +24,7 @@ public final class ReloadSkill {
     }
 
     /** How much faster the clock runs, by level. Index 0 is no skill. */
-    private static final float[] SPEED = {1.0F, 1.2F, 1.5F, 2.0F};
+    private static final float[] SPEED = {1.0F, 1.15F, 1.30F, 1.45F};
 
     /**
      * The skill level of a player as this client knows it - set by the client at start-up, so this

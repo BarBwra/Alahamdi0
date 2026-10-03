@@ -248,6 +248,21 @@ public final class ServerEvents {
         NetworkHooks.openScreen(player, provider, buf -> buf.writeByte(provider.getRows()));
     }
 
+    /**
+     * The same, for a downed body: the client is told whose body it is, so it can draw them with
+     * their gear on. The three bytes in between are the vault's, written as "not a vault".
+     */
+    public static void openBodyScreen(ServerPlayer player, Container container, Component title, int rows, int bodyId) {
+        MlumMenuProvider provider = new MlumMenuProvider(title, container, rows);
+        NetworkHooks.openScreen(player, provider, buf -> {
+            buf.writeByte(provider.getRows());
+            buf.writeByte(0);
+            buf.writeByte(1);
+            buf.writeByte(1);
+            buf.writeInt(bodyId);
+        });
+    }
+
     private static void awardAndAnger(ServerPlayer player, @Nullable Kind kind) {
         if (kind == null) {
             return;

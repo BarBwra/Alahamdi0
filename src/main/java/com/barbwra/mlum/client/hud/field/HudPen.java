@@ -27,6 +27,11 @@ import net.minecraftforge.api.distmarker.OnlyIn;
  * in, so the HUD grows and shrinks with the player's GUI Scale setting exactly like the vanilla HUD
  * it replaces. One GUI pixel is {@link #u} framebuffer pixels - a whole number, because vanilla's
  * GUI scale always is - so every 1px line lands on whole device pixels and stays sharp.</p>
+ *
+ * <h2>Zoom</h2>
+ * <p>{@link #zoom} scales everything drawn after it about one anchor point - a panel's corner - so
+ * a panel laid out once in GUI pixels can be drawn a little larger without touching its layout.
+ * Text is shaped at the zoomed size, so it stays sharp rather than being stretched.</p>
  */
 @OnlyIn(Dist.CLIENT)
 public final class HudPen {
@@ -35,6 +40,33 @@ public final class HudPen {
     /** Framebuffer pixels per GUI pixel. */
     public float u = 1.0F;
     private long frames;
+    private float zx;
+    private float zy;
+    private float zk = 1.0F;
+
+    /** Everything after this is drawn {@code k} times larger, about the anchor point. */
+    public void zoom(float anchorX, float anchorY, float k) {
+        zx = anchorX;
+        zy = anchorY;
+        zk = k;
+    }
+
+    public void unzoom() {
+        zk = 1.0F;
+    }
+
+    /** A layout x, where it lands on screen under the current zoom. GUI pixels. */
+    public float zx(float x) {
+        return zx + (x - zx) * zk;
+    }
+
+    public float zy(float y) {
+        return zy + (y - zy) * zk;
+    }
+
+    public float zk() {
+        return zk;
+    }
 
     public void begin(GuiGraphics graphics) {
         UiBoot.ensure();
@@ -48,6 +80,7 @@ public final class HudPen {
         TextEngine.tick();
         Atlas.tick();
         u = (float) mc.getWindow().getGuiScale();
+        zk = 1.0F;
         canvas.begin(graphics, 0, 0);
     }
 
@@ -72,33 +105,45 @@ public final class HudPen {
         if (w <= 0.0F || h <= 0.0F || (argb >>> 24) == 0) {
             return;
         }
-        canvas.fill(d(x), d(y), d(x + w), d(y + h), argb);
+        canvas.fill(d(zx(x)), d(zy(y)), d(zx(x + w)), d(zy(y + h)), argb);
     }
 
     /** One framebuffer pixel thick, for hairlines finer than a GUI pixel. */
     public void hairRow(float x, float y, float w, int argb) {
-        int x0 = d(x);
-        int y0 = d(y);
-        canvas.fill(x0, y0, d(x + w), y0 + 1, argb);
+        int x0 = d(zx(x));
+        int y0 = d(zy(y));
+        canvas.fill(x0, y0, d(zx(x + w)), y0 + 1, argb);
     }
 
     /** Every other framebuffer row darkened, the glass of the device screens. */
     public void scanlines(float x, float y, float w, float h, int argb) {
-        int x0 = d(x);
-        int x1 = d(x + w);
-        int y1 = d(y + h);
-        for (int yy = d(y); yy < y1; yy += 2) {
+        int x0 = d(zx(x));
+        int x1 = d(zx(x + w));
+        int y1 = d(zy(y + h));
+        for (int yy = d(zy(y)); yy < y1; yy += 2) {
             canvas.fill(x0, yy, x1, yy + 1, argb);
         }
     }
 
     public void vgrad(float x, float y, float w, float h, int top, int bottom) {
-        canvas.gradient(d(x), d(y), d(x + w), d(y + h), top, top, bottom, bottom);
+        canvas.gradient(d(zx(x)), d(zy(y)), d(zx(x + w)), d(zy(y + h)), top, top, bottom, bottom);
     }
 
     /** An item stack, an item icon or a texture, contained in the box. Wide boxes get gun art. */
     public void item(Object what, float x, float y, float w, float h, int tint) {
-        canvas.item(what, d(x), d(y), d(x + w), d(y + h), tint);
+        canvas.item(what, d(zx(x)), d(zy(y)), d(zx(x + w)), d(zy(y + h)), tint);
+    }
+
+    /** A rectangle cut out of a texture - {@code u0..v1} in 0..1 of the whole image. */
+    public void region(net.minecraft.resources.ResourceLocation texture, float x, float y, float w, float h,
+                       float u0, float v0, float u1, float v1, int tint) {
+        canvas.region(texture, d(zx(x)), d(zy(y)), d(zx(x + w)), d(zy(y + h)), u0, v0, u1, v1, tint);
+    }
+
+    /** A player's face from their skin, hat layer and all. */
+    public void face(net.minecraft.resources.ResourceLocation skin, float x, float y, float size, int tint) {
+        region(skin, x, y, size, size, 8 / 64.0F, 8 / 64.0F, 16 / 64.0F, 16 / 64.0F, tint);
+        region(skin, x, y, size, size, 40 / 64.0F, 8 / 64.0F, 48 / 64.0F, 16 / 64.0F, tint);
     }
 
     /* ------------------------------------------------------------------ text */
@@ -109,17 +154,17 @@ public final class HudPen {
 
     /** Handjet, for numbers and Latin labels. */
     public Shaped pixel(String text, float size, int weight) {
-        return TextEngine.shape(text, Fonts.pixel(weight), size * u / Px.s, 0.0F, false);
+        return TextEngine.shape(text, Fonts.pixel(weight), size * zk * u / Px.s, 0.0F, false);
     }
 
     /** Noto Kufi, for Arabic. */
     public Shaped kufi(String text, float size, int weight) {
-        return TextEngine.shape(text, Fonts.kufi(weight), size * u / Px.s, 0.0F, true);
+        return TextEngine.shape(text, Fonts.kufi(weight), size * zk * u / Px.s, 0.0F, true);
     }
 
     /** Width in GUI pixels. */
     public float width(Shaped s) {
-        return s == null ? 0.0F : s.width * Px.s / u;
+        return s == null ? 0.0F : s.width * Px.s / u / zk;
     }
 
     public void text(Shaped s, float x, float baseline, int align, int argb) {
@@ -127,8 +172,8 @@ public final class HudPen {
             return;
         }
         float left = align == CENTER ? x - width(s) / 2.0F : align == RIGHT ? x - width(s) : x;
-        int px = d(left);
-        int by = d(baseline);
+        int px = d(zx(left));
+        int by = d(zy(baseline));
         if (s.fallback()) {
             canvas.fallbackText(s, px, by, argb);
             return;
@@ -149,7 +194,7 @@ public final class HudPen {
             return;
         }
         float left = align == CENTER ? x - width(s) / 2.0F : align == RIGHT ? x - width(s) : x;
-        blit(TextEngine.glow(s, blurGui * u / Px.s, argb), d(left), d(baseline), 0xFFFFFFFF);
+        blit(TextEngine.glow(s, blurGui * zk * u / Px.s, argb), d(zx(left)), d(zy(baseline)), 0xFFFFFFFF);
     }
 
     private void blit(Raster r, int penX, int baseline, int tint) {

@@ -27,6 +27,13 @@ public final class MlumConfig {
 
     /* ------------------------------------------------------------------ server */
 
+    /** The reload skill's card. Shared with {@link ConfigMigration}, which writes it into old files. */
+    static final String ATTACHMENTS_LINE =
+            "attachments|تعبئة أسرع|تعبّي سلاحك أسرع.|bolt|{n}+15%{/n}|{n}+30%{/n}|{n}+45%{/n}|500|1500|5000";
+    /** The quiet search skill's card, taking the first "coming soon" place. */
+    static final String QUIET_LINE =
+            "quiet_hands|إيد خفيفة|التفتيش السريع يطيّح أشياء أقل.|steps|{n}40%{/n} صوت|{n}30%{/n} صوت|{n}20%{/n} صوت|500|1500|5000";
+
     public static final class Server {
         public final ForgeConfigSpec.BooleanValue replaceInventory;
         public final ForgeConfigSpec.BooleanValue replaceInCreative;
@@ -107,8 +114,16 @@ public final class MlumConfig {
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> ranks;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> moneyPacks;
         public final ForgeConfigSpec.ConfigValue<String> storeNote;
+        public final ForgeConfigSpec.IntValue configVersion;
+        public final ForgeConfigSpec.BooleanValue camouflage;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> greenSuit;
+        public final ForgeConfigSpec.ConfigValue<List<? extends String>> snowSuit;
 
         Server(ForgeConfigSpec.Builder b) {
+            configVersion = b
+                    .comment("Leave this alone. The mod uses it to bring an old file's values up to date",
+                            "once, when a new version changes a default you never edited.")
+                    .defineInRange("configVersion", 0, 0, 1000);
             b.comment("Which vanilla screens the tactical UI takes over.").push("takeover");
             replaceInventory = b
                     .comment("Replace the vanilla player inventory screen (the inventory key).",
@@ -375,12 +390,12 @@ public final class MlumConfig {
                             "                them in the number font, e.g. {n}+10%{/n}.",
                             "  price1..3   - the price of reaching that level.")
                     .defineList("skills", List.of(
-                                    "attachments|تعبئة أسرع|تعبّي سلاحك أسرع.|bolt|{n}+20%{/n}|{n}+50%{/n}|{n}+100%{/n}|500|1500|5000",
+                                    ATTACHMENTS_LINE,
                                     "scout|الباحث|تشوف الصناديق من ورا الجدران، وبالمستوى الثالث تعرف الفاضي منها.|eye|{n}8{/n} بلوك|{n}12{/n} بلوك|{n}16{/n} بلوك|500|1500|5000",
                                     "butcher|الجزار|الزومبي يطيح لحم أكثر.|cleaver|{n}+10%{/n}|{n}+20%{/n}|{n}+35%{/n}|500|1500|5000",
                                     "blade_master|السلاح اليدوي|القتل بسلاح يدوي ينزل أغراض أكثر من الزومبي والوحوش.|blade|{n}+15%{/n}|{n}+30%{/n}|{n}+50%{/n}|500|1500|5000",
                                     "medic|المسعف|كل شي يعالجك يعالج أكثر.|cross|{n}+15%{/n}|{n}+30%{/n}|{n}+50%{/n}|500|1500|5000",
-                                    "soon_1|قادم قريباً|مهارة جديدة تنزل مع تحديث جاي.|lock|—|—|—|0|0|0|true",
+                                    QUIET_LINE,
                                     "soon_2|قادم قريباً|مهارة جديدة تنزل مع تحديث جاي.|lock|—|—|—|0|0|0|true",
                                     "soon_3|قادم قريباً|مهارة جديدة تنزل مع تحديث جاي.|lock|—|—|—|0|0|0|true"),
                             entry -> entry instanceof String);
@@ -418,20 +433,21 @@ public final class MlumConfig {
             b.pop();
 
             b.comment("Searching (التفتيش): opening anything that stores items takes a moment.",
-                    "Right click and keep holding. Hold Shift as well to search fast, at the risk of",
-                    "knocking something over: a noise that stalls the search and brings zombies.").push("loot_search");
+                    "One right click starts it. Hold Shift during it to search fast, at the risk of",
+                    "knocking something over: a noise that stalls the search and brings zombies.",
+                    "The quiet_hands skill lowers that risk by 10 points a level.").push("loot_search");
             lootSearch = b
                     .comment("Off opens every container instantly, the vanilla way.")
                     .define("enabled", true);
             lootSeconds = b
                     .comment("How long a normal search takes.")
-                    .defineInRange("searchSeconds", 2.0D, 0.0D, 30.0D);
+                    .defineInRange("searchSeconds", 1.5D, 0.0D, 30.0D);
             lootFastSeconds = b
                     .comment("How long a search takes with Shift held.")
-                    .defineInRange("fastSeconds", 0.25D, 0.0D, 30.0D);
+                    .defineInRange("fastSeconds", 0.75D, 0.0D, 30.0D);
             lootNoiseChance = b
                     .comment("The chance a fast search makes a noise, 0 to 1.")
-                    .defineInRange("noiseChance", 0.25D, 0.0D, 1.0D);
+                    .defineInRange("noiseChance", 0.5D, 0.0D, 1.0D);
             lootNoisePause = b
                     .comment("How long the noise stalls the search, in seconds.")
                     .defineInRange("noisePauseSeconds", 0.5D, 0.0D, 10.0D);
@@ -452,7 +468,7 @@ public final class MlumConfig {
                     .define("enabled", true);
             downedSeconds = b
                     .comment("How long a downed player lasts before they bleed out.")
-                    .defineInRange("bleedOutSeconds", 180, 5, 3600);
+                    .defineInRange("bleedOutSeconds", 360, 5, 3600);
             reviveSeconds = b
                     .comment("How long F has to be held to revive someone with nothing in hand.")
                     .defineInRange("reviveSeconds", 10, 1, 120);
@@ -475,7 +491,7 @@ public final class MlumConfig {
                     .comment("Another player's attack finishes a downed player. Zombies always ignore them.")
                     .define("playersCanFinish", true);
             giveUpSeconds = b
-                    .comment("How long a downed player holds F to give up and die now.")
+                    .comment("How long a downed player holds F to give up and die now. E calls for help.")
                     .defineInRange("giveUpSeconds", 3, 1, 30);
             distressSeconds = b
                     .comment("How long a distress call stays on the faction's screens.")
@@ -500,6 +516,31 @@ public final class MlumConfig {
             oxygenSeconds = b
                     .comment("How long the oxygen kit has to be held on a downed player.")
                     .defineInRange("oxygenSeconds", 5, 1, 60);
+            b.pop();
+
+            b.comment("Camouflage (التمويه): a full ghillie suit hides its wearer completely - body, armour,",
+                    "what they hold, their shadow and their name - while they are in the right cover.",
+                    "Green: leaves, grass, crops, bushes, flowers and vines, or crouched on grass or moss.",
+                    "Snow: snow, powder snow and ice.").push("camouflage");
+            camouflage = b
+                    .comment("Off: the suits are ordinary armour.")
+                    .define("enabled", true);
+            greenSuit = b
+                    .comment("The green suit, all four pieces. Every one must be worn.")
+                    .defineList("greenSuit", List.of(
+                                    "survival_instinct:guillie_helmet",
+                                    "survival_instinct:guillie_chestplate",
+                                    "survival_instinct:guillie_leggings",
+                                    "survival_instinct:guillie_boots"),
+                            entry -> entry instanceof String);
+            snowSuit = b
+                    .comment("The snow suit, all four pieces. Every one must be worn.")
+                    .defineList("snowSuit", List.of(
+                                    "survival_instinct:artic_guillie_helmet",
+                                    "survival_instinct:artic_guillie_chestplate",
+                                    "survival_instinct:artic_guillie_leggings",
+                                    "survival_instinct:artic_guillie_boots"),
+                            entry -> entry instanceof String);
             b.pop();
 
             b.comment("Ranks (الرتب): the ladder shown beside the wallet, and the store screen.",
@@ -555,6 +596,7 @@ public final class MlumConfig {
         public final ForgeConfigSpec.BooleanValue lootMarkers;
         public final ForgeConfigSpec.IntValue lootMarkerRange;
         public final ForgeConfigSpec.ConfigValue<String> fieldHudAccent;
+        public final ForgeConfigSpec.DoubleValue fieldHudScale;
 
         public final ForgeConfigSpec.BooleanValue animationsEnabled;
         public final ForgeConfigSpec.DoubleValue animationSpeed;
@@ -663,6 +705,10 @@ public final class MlumConfig {
             fieldHudAccent = b
                     .comment("The field HUD's colour as RRGGBB hex. A8C66C is the olive it was designed in.")
                     .define("fieldHudAccent", "A8C66C");
+            fieldHudScale = b
+                    .comment("How big the field HUD is drawn, on top of the GUI Scale setting. 1.0 is the",
+                            "original size; each panel grows from its own corner of the screen.")
+                    .defineInRange("fieldHudScale", 1.15D, 0.75D, 2.0D);
             lootMarkers = b
                     .comment("Corner marks and a mouse icon on containers you can see and search.")
                     .define("lootMarkers", true);
@@ -994,15 +1040,15 @@ public final class MlumConfig {
     }
 
     public static double lootSeconds() {
-        return serverReady() ? SERVER.lootSeconds.get() : 2.0D;
+        return serverReady() ? SERVER.lootSeconds.get() : 1.5D;
     }
 
     public static double lootFastSeconds() {
-        return serverReady() ? SERVER.lootFastSeconds.get() : 0.25D;
+        return serverReady() ? SERVER.lootFastSeconds.get() : 0.75D;
     }
 
     public static double lootNoiseChance() {
-        return serverReady() ? SERVER.lootNoiseChance.get() : 0.25D;
+        return serverReady() ? SERVER.lootNoiseChance.get() : 0.5D;
     }
 
     public static double lootNoisePause() {
@@ -1024,7 +1070,7 @@ public final class MlumConfig {
     }
 
     public static int downedSeconds() {
-        return serverReady() ? SERVER.downedSeconds.get() : 180;
+        return serverReady() ? SERVER.downedSeconds.get() : 360;
     }
 
     public static int reviveSeconds() {
@@ -1351,6 +1397,22 @@ public final class MlumConfig {
     private static int fieldAccent = 0xFFA8C66C;
 
     /** The field HUD's accent as opaque ARGB, re-parsed only when the config line changes. */
+    public static boolean camouflage() {
+        return !serverReady() || SERVER.camouflage.get();
+    }
+
+    public static List<? extends String> greenSuit() {
+        return serverReady() ? SERVER.greenSuit.get() : SERVER.greenSuit.getDefault();
+    }
+
+    public static List<? extends String> snowSuit() {
+        return serverReady() ? SERVER.snowSuit.get() : SERVER.snowSuit.getDefault();
+    }
+
+    public static float fieldHudScale() {
+        return clientReady() ? CLIENT.fieldHudScale.get().floatValue() : 1.15F;
+    }
+
     public static int fieldHudAccent() {
         if (!clientReady()) {
             return 0xFFA8C66C;

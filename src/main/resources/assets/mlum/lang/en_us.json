@@ -64,6 +64,6 @@
     "gui.mlum.vehicle.fail.ok": "ﻢﺗ",
     "key.categories.mlum": "MlumInventory",
     "key.mlum.vehicle_lock": "Vehicle lock (locked / faction / open)",
-    "key.mlum.interact": "Downed: loot / revive / drag, or call for help",
+    "key.mlum.interact": "Downed: loot / revive, or hold to give up",
     "entity.mlum.downed_dummy": "Practice body"
 }

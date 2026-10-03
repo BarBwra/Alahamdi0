@@ -44,13 +44,13 @@ import java.util.Map;
  * <h2>When you are the one down</h2>
  * <p>The camera lies on the ground looking at the sky and cannot turn - only a slow sway, like
  * breathing. Movement, the hands, the hotbar and every use or attack are held back. A heartbeat
- * plays. Tap F to call your faction; hold F to give up.</p>
+ * plays. E calls your faction; holding F gives up.</p>
  *
  * <h2>When someone else is</h2>
- * <p>Walk up to them and a small row of options appears over the body: loot, revive, drag. The
- * mouse wheel moves between them and F does the one picked - once for loot and drag, held for a
- * revive. The defibrillator in hand turns revive into an instant shock, the oxygen kit into a
- * shorter hold.</p>
+ * <p>Walk up to them and two options appear over the body: loot and revive. The mouse wheel
+ * moves between them and F does the one picked - once for loot, held for a revive, with the hands
+ * up and working (see {@code RummageHands}). The defibrillator in hand turns revive into an instant
+ * shock, the oxygen kit into a shorter hold.</p>
  *
  * <h2>How the body lies</h2>
  * <p>Drawn in the sleeping pose for the length of the render call and put back straight after, so
@@ -65,7 +65,7 @@ public final class DownedClientEvents {
 
     public static final int LOOT = 0;
     public static final int REVIVE = 1;
-    public static final int DRAG = 2;
+    private static final int OPTIONS = 2;
 
     private static float lockedYaw = Float.NaN;
     private static int holdTicks;
@@ -77,8 +77,12 @@ public final class DownedClientEvents {
     private static int selected = REVIVE;
     private static boolean reviving;
     private static int beat;
+    private static long revivingSince;
 
     private static final Map<Integer, Pose> POSES = new HashMap<>();
+
+    /** Set while a body is drawn standing in the loot screen, so it is not laid down for that draw. */
+    public static boolean portrait;
 
     public static Entity target() {
         return target;
@@ -92,12 +96,21 @@ public final class DownedClientEvents {
         return holdTicks;
     }
 
+    /** This client is holding F on a body to bring it round. */
+    public static boolean reviving() {
+        return reviving && target != null;
+    }
+
+    public static long revivingSince() {
+        return revivingSince;
+    }
+
     /* ================================================================== lying down */
 
     @SubscribeEvent
     public static void onRenderPlayerPre(RenderPlayerEvent.Pre event) {
         Player player = event.getEntity();
-        if (DownedState.isDowned(player) && !player.hasPose(Pose.SLEEPING)) {
+        if (!portrait && DownedState.isDowned(player) && !player.hasPose(Pose.SLEEPING)) {
             POSES.put(player.getId(), player.getPose());
             player.setPose(Pose.SLEEPING);
         }
@@ -181,7 +194,7 @@ public final class DownedClientEvents {
         if (target != null) {
             event.setCanceled(true);
             int step = event.getScrollDelta() > 0 ? -1 : 1;
-            selected = (selected + step + 3) % 3;
+            selected = (selected + step + OPTIONS) % OPTIONS;
             stopReviving();
         }
     }
@@ -227,6 +240,9 @@ public final class DownedClientEvents {
                 if (!reviving || ++beat % 4 == 0) {
                     send(C2SDownedAction.REVIVE, target);
                 }
+                if (!reviving) {
+                    revivingSince = Anim.now();
+                }
                 reviving = true;
             } else {
                 stopReviving();
@@ -243,16 +259,16 @@ public final class DownedClientEvents {
         }
         if (option == LOOT) {
             send(C2SDownedAction.LOOT, target);
-        } else if (option == DRAG) {
-            send(C2SDownedAction.DRAG, target);
         } else {
             send(C2SDownedAction.DEFIB, target);
         }
     }
 
     private static void whileDown(Minecraft mc) {
+        // no bag while down: the inventory key (E) calls the faction for help instead
+        boolean call = false;
         while (mc.options.keyInventory.consumeClick()) {
-            // no bag while down
+            call = true;
         }
         while (mc.options.keyDrop.consumeClick()) {
             // nor dropping things
@@ -263,8 +279,11 @@ public final class DownedClientEvents {
             }
         }
         holdBackSwap(mc);
+        if (call) {
+            ModNetwork.CHANNEL.sendToServer(new C2SDownedAction(C2SDownedAction.DISTRESS, 0));
+        }
         while (DownedKeys.INTERACT.consumeClick()) {
-            // tap and hold are both read from isDown below
+            // giving up is read from isDown below
         }
         if (DownedKeys.INTERACT.isDown()) {
             holdTicks++;
@@ -273,9 +292,6 @@ public final class DownedClientEvents {
                 ModNetwork.CHANNEL.sendToServer(new C2SDownedAction(C2SDownedAction.GIVE_UP, 0));
             }
         } else {
-            if (holdTicks > 0 && holdTicks < 6) {
-                ModNetwork.CHANNEL.sendToServer(new C2SDownedAction(C2SDownedAction.DISTRESS, 0));
-            }
             holdTicks = 0;
         }
         if (Anim.enabled() && ++heartbeat % 22 == 0) {

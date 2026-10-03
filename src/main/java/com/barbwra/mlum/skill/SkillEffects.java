@@ -48,6 +48,16 @@ public final class SkillEffects {
     public static final String MEDIC = "medic";
     public static final String SCOUT = "scout";
     public static final String ATTACHMENTS = "attachments";
+    /** إيد خفيفة: a fast search knocks things over less often. See {@code LootSearch}. */
+    public static final String QUIET_HANDS = "quiet_hands";
+
+    /** What each level of quiet hands takes off the fast search's noise chance. */
+    private static final float[] QUIET_CUT = {0.10F, 0.20F, 0.30F};
+
+    /** The chance a fast search makes a noise for this player: the config's, less the skill. */
+    public static float noiseChance(Player player, double base) {
+        return Math.max(0.0F, (float) base - bonus(QUIET_CUT, SkillService.level(player, QUIET_HANDS)));
+    }
 
     /** Extra drops per level, as a fraction. Index 0 is level 1. */
     private static final float[] BUTCHER_BONUS = {0.10F, 0.20F, 0.35F};

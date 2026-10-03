@@ -4,6 +4,8 @@ import com.barbwra.mlum.MlumConfig;
 import com.barbwra.mlum.client.gui.Anim;
 import com.barbwra.mlum.client.hud.HudVisibility;
 import com.barbwra.mlum.client.hud.field.HudPen;
+import com.barbwra.mlum.client.hud.field.SearchSpinner;
+import com.barbwra.mlum.client.hud.field.Shapes;
 import com.barbwra.mlum.client.loot.WorldProjector;
 import com.barbwra.mlum.client.ui.text.Shaped;
 import net.minecraft.client.Minecraft;
@@ -22,16 +24,19 @@ import net.minecraftforge.api.distmarker.OnlyIn;
  * <pre>
  *      the downed player                    someone walking up
  *
- *          . . o o o o .                      [F]
- *        .               o              ┌──────┐┌──────┐┌──────┐
- *        o     أنت مصاب    o              │ تلويت ││ إنعاش ││ سحب  │
- *        o  انتظر أحد يقومك o              └──────┘└━━━━━━┘└──────┘
- *          o o o o o o o                   بدّل بعجلة الماوس
- *    اضغط F للاستغاثة · امسك F للاستسلام
+ *           ╭──────╮                          [F]
+ *         ╱   5:42   ╲                  ┌────────┐┌────────┐
+ *        │            │                 │  تلويت  ││  إنعاش  │
+ *         ╲          ╱                  └────────┘└━━━━━━━━┘
+ *           ╰──────╯                       بدّل بعجلة الماوس
+ *           أنت مصاب
+ *    E للاستغاثة · امسك F للاستسلام
  * </pre>
  *
- * <p>The ring is sixty dots and loses one every three seconds of a three minute clock; there are no
- * numbers on it, on purpose. In the last sixth it turns red.</p>
+ * <p>The ring is the time left, running down anticlockwise, with the minutes and seconds inside.
+ * It turns red in the last sixth. Holding F to give up paints it red from the top as the hold
+ * fills, so letting go in time is a visible choice. While someone revives you, a green ring fills
+ * inside it.</p>
  */
 @OnlyIn(Dist.CLIENT)
 public final class DownedHud {
@@ -43,6 +48,7 @@ public final class DownedHud {
     private static final int MUTED = 0xFFA19E8B;
     private static final int FAINT = 0xFF6B6A5C;
     private static final int RUST = 0xFFD9623F;
+    private static final int RED = 0xFFE5442E;
     private static final int SAGE = 0xFF93C46F;
 
     private static final HudPen SELF = new HudPen();
@@ -79,44 +85,58 @@ public final class DownedHud {
             }
 
             float cx = width / 2.0F;
-            float cy = height / 2.0F - 12.0F;
-            int lit = (int) Math.ceil(left * 60.0F);
+            float cy = height / 2.0F - 14.0F;
+            float radius = 27.0F;
+            float thick = 2.5F;
             boolean late = left < 1.0F / 6.0F;
-            for (int i = 0; i < 60; i++) {
-                double ang = i / 60.0D * Math.PI * 2.0D - Math.PI / 2.0D;
-                float x = cx + (float) Math.cos(ang) * 24.0F;
-                float y = cy + (float) Math.sin(ang) * 24.0F;
-                int c = i < lit ? (late ? alpha(RUST, pulse) : BONE) : 0x1FFFFFFF;
-                pen.rect(x - 0.75F, y - 0.75F, 1.5F, 1.5F, c);
+            int hold = DownedClientEvents.holdTicks();
+            float giveUp = Mth.clamp(hold / (float) Math.max(1, MlumConfig.giveUpSeconds() * 20), 0.0F, 1.0F);
+
+            // a dark disc behind it all, so the ring reads against a bright sky
+            Shapes.disc(pen, cx, cy, radius + 7.0F, 0x59000000);
+            Shapes.ring(pen, cx, cy, radius, thick, 0x24FFFFFF);
+            int arc = late ? alpha(RUST, pulse) : BONE;
+            if (giveUp > 0.0F) {
+                // giving up: the white turns red from the top as the hold fills
+                Shapes.arc(pen, cx, cy, radius, thick, 0.0F, left * giveUp, RED);
+                Shapes.arc(pen, cx, cy, radius, thick, left * giveUp, left, arc);
+            } else {
+                Shapes.arc(pen, cx, cy, radius, thick, 0.0F, left, arc);
             }
 
             ClientDowned.Info info = ClientDowned.info(player.getId());
             float revive = info == null ? 0.0F : info.revive();
             boolean helped = info != null && revive > 0.0F && !info.reviver().isEmpty();
             if (helped) {
-                int done = Math.round(revive * 40.0F);
-                for (int i = 0; i < 40; i++) {
-                    double ang = i / 40.0D * Math.PI * 2.0D - Math.PI / 2.0D;
-                    float x = cx + (float) Math.cos(ang) * 17.0F;
-                    float y = cy + (float) Math.sin(ang) * 17.0F;
-                    pen.rect(x - 0.5F, y - 0.5F, 1.0F, 1.0F, i < done ? SAGE : 0x26FFFFFF);
-                }
+                Shapes.ring(pen, cx, cy, radius - 5.0F, 1.5F, 0x1FFFFFFF);
+                Shapes.arc(pen, cx, cy, radius - 5.0F, 1.5F, 0.0F, revive, SAGE);
             }
 
-            Shaped title = pen.kufi(helped ? info.reviver() + " يقومك" : "أنت مصاب", 9.0F, 700);
-            pen.shadowed(title, cx, cy + 40.0F, HudPen.CENTER, helped ? SAGE : BONE);
-            String sub = info != null && info.dragged() ? "أحد يسحبك" : helped ? "لا تتحرك" : "انتظر أحد يقومك";
-            pen.text(pen.kufi(sub, 5.5F, 600), cx, cy + 50.0F, HudPen.CENTER, MUTED);
+            int seconds = info == null ? 0 : Math.max(0, (int) Math.ceil(left * info.total() / 20.0F));
+            String clock = (seconds / 60) + ":" + String.format("%02d", seconds % 60);
+            Shaped time = pen.pixel(clock, 14.0F, 700);
+            int timeColour = giveUp > 0.0F ? RED : late ? alpha(RUST, pulse) : BONE;
+            pen.glow(time, cx, cy + 5.0F, HudPen.CENTER, 2.0F, alpha(timeColour, 0.35F));
+            pen.text(time, cx, cy + 5.0F, HudPen.CENTER, timeColour);
 
-            Shaped hint = pen.kufi("اضغط F للاستغاثة · امسك F للاستسلام", 5.0F, 600);
-            pen.text(hint, cx, height - 28.0F, HudPen.CENTER, FAINT);
-            int hold = DownedClientEvents.holdTicks();
-            int need = Math.max(1, MlumConfig.giveUpSeconds() * 20);
-            if (hold > 5) {
-                float w = 60.0F;
-                pen.rect(cx - w / 2, height - 24.0F, w, 1.0F, 0x33FFFFFF);
-                pen.rect(cx - w / 2, height - 24.0F, w * Math.min(1.0F, hold / (float) need), 1.0F, RUST);
+            float titleY = cy + radius + 16.0F;
+            if (helped) {
+                pen.shadowed(pen.kufi(info.reviver() + " يقومك", 9.0F, 700), cx, titleY, HudPen.CENTER, SAGE);
+            } else {
+                // "أنت مصاب" with the second word in red; Arabic runs right to left, so it sits left
+                Shaped you = pen.kufi("أنت", 9.0F, 700);
+                Shaped hurt = pen.kufi("مصاب", 9.0F, 700);
+                float gap = 3.0F;
+                float total = pen.width(you) + gap + pen.width(hurt);
+                float x0 = cx - total / 2.0F;
+                pen.shadowed(hurt, x0, titleY, HudPen.LEFT, RED);
+                pen.shadowed(you, x0 + pen.width(hurt) + gap, titleY, HudPen.LEFT, BONE);
             }
+            String sub = helped ? "لا تتحرك" : "انتظر أحد يقومك";
+            pen.text(pen.kufi(sub, 5.5F, 600), cx, titleY + 10.0F, HudPen.CENTER, MUTED);
+
+            Shaped hint = pen.kufi("E للاستغاثة · امسك F للاستسلام", 5.0F, 600);
+            pen.text(hint, cx, height - 28.0F, HudPen.CENTER, giveUp > 0.0F ? RED : FAINT);
         } finally {
             pen.end();
         }
@@ -131,52 +151,63 @@ public final class DownedHud {
             renderDistress(graphics, width, height);
             return;
         }
+        int accent = MlumConfig.fieldHudAccent();
+        if (DownedClientEvents.reviving()) {
+            // hands on the body: the same spinner as a search, with how far the revive has got
+            HudPen pen = PROMPT;
+            pen.begin(graphics);
+            try {
+                SearchSpinner.draw(pen, width / 2.0F, height / 2.0F + height * 0.075F, height,
+                        DownedClientEvents.revivingSince(), 800.0F, false, ClientDowned.revive(body), accent);
+                distressMarks(pen, width, height);
+            } finally {
+                pen.end();
+            }
+            return;
+        }
         Vec3 at = body.getPosition(partialTick).add(0.0D, 0.95D, 0.0D);
         float[] p = new float[2];
         if (!WorldProjector.project(at.x, at.y, at.z, width, height, p)) {
             renderDistress(graphics, width, height);
             return;
         }
-        int accent = MlumConfig.fieldHudAccent();
         boolean defib = DownedClientEvents.holds(mc.player.getMainHandItem(), MlumConfig.defibItem());
         boolean oxygen = DownedClientEvents.holds(mc.player.getMainHandItem(), MlumConfig.oxygenItem());
-        String[] labels = {"تلويت", defib ? "صعق" : oxygen ? "أكسجين" : "إنعاش", "سحب"};
+        String[] labels = {"تلويت", defib ? "صعق" : oxygen ? "أكسجين" : "إنعاش"};
         int sel = DownedClientEvents.selected();
-        float revive = ClientDowned.revive(body);
 
         HudPen pen = PROMPT;
         pen.begin(graphics);
         try {
-            Shaped[] shaped = new Shaped[3];
-            float[] widths = new float[3];
+            int n = labels.length;
+            Shaped[] shaped = new Shaped[n];
+            float[] widths = new float[n];
             float total = 0.0F;
-            for (int i = 0; i < 3; i++) {
-                shaped[i] = pen.kufi(labels[i], 5.5F, 600);
-                widths[i] = Math.max(26.0F, pen.width(shaped[i]) + 10.0F);
+            for (int i = 0; i < n; i++) {
+                shaped[i] = pen.kufi(labels[i], 6.0F, 600);
+                widths[i] = Math.max(32.0F, pen.width(shaped[i]) + 14.0F);
                 total += widths[i];
             }
-            total += 4.0F;
+            total += 2.0F * (n - 1);
             float x = p[0] - total / 2.0F;
             float y = p[1] - 6.0F;
-            float h = 11.0F;
-            for (int i = 0; i < 3; i++) {
+            float h = 13.0F;
+            for (int i = 0; i < n; i++) {
                 float w = widths[i];
                 boolean on = i == sel;
-                pen.rect(x + 1, y, w - 2, h, on ? 0xE61A1F17 : 0xCC0F120D);
-                pen.rect(x, y + 1, 1, h - 2, on ? 0xE61A1F17 : 0xCC0F120D);
-                pen.rect(x + w - 1, y + 1, 1, h - 2, on ? 0xE61A1F17 : 0xCC0F120D);
+                int fill = on ? 0xE61A1F17 : 0xCC0F120D;
+                pen.rect(x + 1, y, w - 2, h, fill);
+                pen.rect(x, y + 1, 1, h - 2, fill);
+                pen.rect(x + w - 1, y + 1, 1, h - 2, fill);
                 int edge = on ? accent : 0x40FFFFFF;
                 pen.rect(x + 1, y, w - 2, 0.5F, edge);
                 pen.rect(x + 1, y + h - 0.5F, w - 2, 0.5F, edge);
-                pen.text(shaped[i], x + w / 2.0F, y + 7.8F, HudPen.CENTER, on ? BONE : MUTED);
+                pen.text(shaped[i], x + w / 2.0F, y + 9.0F, HudPen.CENTER, on ? BONE : MUTED);
                 if (on) {
-                    Shaped key = pen.pixel("F", 5.0F, 700);
-                    float kw = pen.width(key) + 3.0F;
-                    pen.rect(x + w / 2.0F - kw / 2.0F, y - 6.5F, kw, 5.5F, accent);
-                    pen.text(key, x + w / 2.0F, y - 2.2F, HudPen.CENTER, 0xFF0B0E0A);
-                }
-                if (i == DownedClientEvents.REVIVE && revive > 0.0F) {
-                    pen.rect(x + 1, y + h, (w - 2) * Mth.clamp(revive, 0.0F, 1.0F), 1.0F, SAGE);
+                    Shaped key = pen.pixel("F", 5.5F, 700);
+                    float kw = pen.width(key) + 4.0F;
+                    pen.rect(x + w / 2.0F - kw / 2.0F, y - 7.5F, kw, 6.5F, accent);
+                    pen.text(key, x + w / 2.0F, y - 2.6F, HudPen.CENTER, 0xFF0B0E0A);
                 }
                 x += w + 2.0F;
             }

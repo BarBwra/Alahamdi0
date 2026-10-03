@@ -131,6 +131,9 @@ public final class McItems {
         it.h = b.h;
         it.gun = b.gun;
         it.art = b.art;
+        it.ammo = b.ammo;
+        it.ammoName = b.ammoName;
+        it.magazine = b.magazine;
         it.tint = b.tint;
         return it;
     }
@@ -150,6 +153,12 @@ public final class McItems {
         it.gun = TaczCompat.isGun(stack);
         if (it.gun) {
             it.art = TaczGunHud.hudTexture(stack, TaczCompat.loadedRounds(stack) == 0);
+            ItemStack round = TaczAttachments.ammoOf(stack);
+            if (!round.isEmpty()) {
+                it.ammo = round;
+                it.ammoName = UiText.logical(round.getHoverName().getString());
+            }
+            it.magazine = TaczAttachments.magazineSize(stack);
         }
         it.category = category(stack, it.gun);
         double price = ClientBagState.priceOf(stack);

@@ -11,10 +11,13 @@ import net.minecraftforge.fml.common.Mod;
 import org.lwjgl.glfw.GLFW;
 
 /**
- * F: act on a downed body, or - when you are the one down - call for help (tap) and give up (hold).
+ * F: act on a downed body - or, when you are the one down, hold it to give up.
  *
  * <p>F is also vanilla's swap-hands key. While there is a body to act on, or while you are down,
  * the swap is held back so pressing F never also moves your offhand item.</p>
+ *
+ * <p>Calling for help while down is the inventory key (E) - the bag cannot open on the ground
+ * anyway, and borrowing that key means no second binding on E to show up red in the controls.</p>
  */
 @Mod.EventBusSubscriber(modid = MlumInventory.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class DownedKeys {

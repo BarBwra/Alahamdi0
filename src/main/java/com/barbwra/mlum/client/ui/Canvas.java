@@ -36,6 +36,10 @@ public interface Canvas {
     /** The player's own model, standing in the rectangle, looking at the mouse. */
     void player(int x0, int y0, int x1, int y1, int mouseX, int mouseY);
 
+    /** Another living entity in the world - a downed player being looted - standing in the rectangle. */
+    default void body(int entityId, int x0, int y0, int x1, int y1) {
+    }
+
     /**
      * Any registered entity's real model, fitted into the rectangle - a vehicle in the garage.
      *

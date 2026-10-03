@@ -71,8 +71,12 @@ public final class ModNetwork {
      * <p>12 -&gt; 13: the downed system and the timed container search - {@code S2CDowned},
      * {@code C2SDownedAction}, {@code S2CDistress}, {@code S2CLootSearch}, {@code C2SLootCancel}
      * and {@code S2CScoutInfo} (the scout's empty-container hints).</p>
+     *
+     * <p>13 -&gt; 14: dragging a downed body was taken out, and {@code S2CDowned} lost its
+     * "being dragged" flag with it. The loot screen of a downed body also carries the body's
+     * entity id after the vault bytes.</p>
      */
-    private static final String PROTOCOL = "13";
+    private static final String PROTOCOL = "14";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             MlumInventory.id("main"),

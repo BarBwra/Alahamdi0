@@ -67,7 +67,6 @@ public final class LootMarkers {
 
     private static final int BONE = 0xFFECE6D4;
     private static final int FAINT = 0xFF6B6A5C;
-    private static final int GREEN = 0xFF7BD06A;
     private static final int AMBER = 0xFFF0A93B;
 
     private record Target(long key, BlockPos pos, BlockPos partner, AABB box, boolean visible, double dist) {
@@ -227,7 +226,7 @@ public final class LootMarkers {
                         brackets(pen, rect, done ? FAINT : BONE, (done ? 0.5F : 0.6F) * fade, false, false);
                     }
                     if (!active) {
-                        mouse(pen, rect, focused, done ? 0.4F * fade : (focused ? 1.0F : 0.85F * fade));
+                        mouse(pen, rect, focused, done ? 0.4F * fade : (focused ? 1.0F : 0.85F * fade), height);
                     }
                 } else {
                     Boolean empty = ClientScoutInfo.isEmpty(t.key());
@@ -310,45 +309,89 @@ public final class LootMarkers {
         }
     }
 
-    /** The pixel mouse: left button, wheel, right button - the right one green when it means something. */
+    /**
+     * The mouse: a rounded body, the two buttons split by the wheel, the right button green.
+     *
+     * <p>Fifteen by twenty-two cells, each cell a whole number of framebuffer pixels so the edges
+     * stay crisp, sized from the screen height - about a twentieth of it, a quarter more when you
+     * are looking straight at the container. It sits on a soft drop shadow so it reads on a white
+     * wall as well as in a dark cellar. Looked at, the right button lights up and clicks every so
+     * often - the hint is which button to press, so that button is the one that moves.</p>
+     */
     private static final String[] MOUSE = {
-            "  #####  ",
-            " #LLwRR# ",
-            "#LLLwRRR#",
-            "#LLLwRRR#",
-            "#########",
-            "#.......#",
-            "#.......#",
-            "#.......#",
-            "#.......#",
-            " #.....# ",
-            "  #####  ",
+            "     #####     ",
+            "   ##LL|RR##   ",
+            "  #LLLLwRRRR#  ",
+            " #LLLLLwRRRRR# ",
+            " #LLLLLwRRRRR# ",
+            "#LLLLLLwRRRRRR#",
+            "#LLLLLLwRRRRRR#",
+            "#LLLLLL|RRRRRR#",
+            "#LLLLLL|RRRRRR#",
+            "#-------------#",
+            "#.............#",
+            "#.............#",
+            "#.............#",
+            "#.............#",
+            "#.............#",
+            "#.............#",
+            "#.............#",
+            "#.............#",
+            "#.............#",
+            " #...........# ",
+            "  #.........#  ",
+            "   #########   ",
     };
+    private static final int MOUSE_SPLIT = 9;
 
-    private static void mouse(HudPen pen, float[] r, boolean focused, float a) {
-        float px = Math.max(1.0F, Math.round(pen.u * (focused ? 0.75F : 0.55F))) / pen.u;
-        float w = MOUSE[0].length() * px;
-        float h = MOUSE.length * px;
-        float x = (r[0] + r[2]) / 2.0F - w / 2.0F;
-        float y = (r[1] + r[3]) / 2.0F - h / 2.0F;
-        int outline = alpha(focused ? 0xFFFFF8EA : BONE, a);
-        int left = alpha(0xFFECE6D4, 0.22F * a);
-        int right = focused ? alpha(GREEN, a) : alpha(0xFFECE6D4, 0.35F * a);
-        int wheel = alpha(0xFFA19E8B, a);
-        int body = alpha(0xFF11140F, 0.75F * a);
+    private static void mouse(HudPen pen, float[] r, boolean focused, float a, int screenHeight) {
+        int cellPx = Math.max(1, Math.round(screenHeight * pen.u * (focused ? 0.062F : 0.048F) / MOUSE.length));
+        float cell = cellPx / pen.u;
+        float w = MOUSE[0].length() * cell;
+        float h = MOUSE.length * cell;
+        float x = Math.round(((r[0] + r[2]) / 2.0F - w / 2.0F) * pen.u) / pen.u;
+        float y = Math.round(((r[1] + r[3]) / 2.0F - h / 2.0F) * pen.u) / pen.u;
+        long now = Anim.now();
+        // a click every 1.4 s while looked at: the button dips for a moment
+        boolean pressed = focused && Anim.enabled() && now % 1400L < 140L;
+        int green = focused ? (pressed ? 0xFF4E9E36 : 0xFF76D654) : 0xFF5C9648;
+        int greenHi = focused ? (pressed ? 0xFF5FB244 : 0xFF97EE77) : 0xFF73B05C;
+        int outline = alpha(focused ? 0xFFFAF6EC : 0xFFECE6D4, (focused ? 1.0F : 0.9F) * a);
+        int seam = alpha(0xFFECE6D4, 0.55F * a);
+        int left = alpha(0xFF343A36, 0.92F * a);
+        int wheel = alpha(0xFFD8D3C2, a);
+        int shadow = alpha(0xFF000000, 0.35F * a);
+        if (focused) {
+            // a faint green halo round the right half, the part that matters
+            pen.rect(x + w * 0.5F, y - cell, w * 0.5F + cell, h * 0.45F + cell, alpha(0xFF76D654, 0.10F * a));
+        }
+        for (int row = 0; row < MOUSE.length; row++) {
+            String line = MOUSE[row];
+            for (int col = 0; col < line.length(); col++) {
+                if (line.charAt(col) != ' ') {
+                    pen.rect(x + (col + 1) * cell, y + (row + 1) * cell, cell, cell, shadow);
+                }
+            }
+        }
         for (int row = 0; row < MOUSE.length; row++) {
             String line = MOUSE[row];
             for (int col = 0; col < line.length(); col++) {
                 int c = switch (line.charAt(col)) {
                     case '#' -> outline;
+                    case '-', '|' -> seam;
+                    case 'w' -> row == 4 ? alpha(0xFF78746A, a) : wheel;
                     case 'L' -> left;
-                    case 'R' -> right;
-                    case 'w' -> wheel;
-                    case '.' -> body;
+                    case 'R' -> alpha(row <= 1 || (row == 2 && col > 9) ? greenHi : green, (focused ? 0.97F : 0.82F) * a);
+                    case '.' -> {
+                        // the body darkens towards the palm
+                        float t = (row - MOUSE_SPLIT) / (float) (MOUSE.length - MOUSE_SPLIT);
+                        int v = Math.round(34 - 10 * t);
+                        yield alpha(0xFF000000 | (v << 16) | ((v + 5) << 8) | (v + 2), 0.9F * a);
+                    }
                     default -> 0;
                 };
                 if (c != 0) {
-                    pen.rect(x + col * px, y + row * px, px, px, c);
+                    pen.rect(x + col * cell, y + row * cell, cell, cell, c);
                 }
             }
         }

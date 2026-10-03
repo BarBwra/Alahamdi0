@@ -116,6 +116,9 @@ public class MlumMenu extends AbstractContainerMenu {
     /** Server only - opened by an operator's command, so page turns skip the membership check. */
     private boolean vaultAdmin;
 
+    /** The downed body being looted, by entity id, or -1 - the screen draws them and their gear. */
+    private int bodyId = -1;
+
     /* ---- live bag sync: what the bag looked like when it was last sent ---- */
     private long bagSignature = Long.MIN_VALUE;
     @javax.annotation.Nullable
@@ -133,6 +136,15 @@ public class MlumMenu extends AbstractContainerMenu {
             this.vaultPage = Math.max(1, buf.readByte());
             this.vaultPages = Math.max(1, buf.readByte());
         }
+        // and after those by a downed body's loot screen
+        if (buf.readableBytes() >= 4) {
+            this.bodyId = buf.readInt();
+        }
+    }
+
+    /** The downed body this screen loots, by entity id, or -1. */
+    public int bodyId() {
+        return bodyId;
     }
 
     private MlumMenu(int id, Inventory playerInv, int rows) {

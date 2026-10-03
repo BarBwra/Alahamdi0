@@ -83,6 +83,9 @@ public final class ClientEvents {
         if (!shouldTakeOver(minecraft, player)) {
             return;   // leave the keybind alone so vanilla opens its own screen
         }
+        if (com.barbwra.mlum.client.downed.ClientDowned.selfDowned()) {
+            return;   // on the ground E is the call for help - DownedClientEvents reads it
+        }
 
         enforceHitboxLock(minecraft, player);
 

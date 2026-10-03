@@ -21,7 +21,6 @@ public record C2SDownedAction(int action, int target) {
     public static final int STOP = 2;
     public static final int GIVE_UP = 3;
     public static final int DISTRESS = 4;
-    public static final int DRAG = 5;
     public static final int DEFIB = 6;
 
     public static void encode(C2SDownedAction msg, FriendlyByteBuf buf) {

@@ -335,6 +335,26 @@ public final class McCanvas implements Canvas {
         }
     }
 
+    /** Part of a texture - {@code u0..v1} in 0..1 of the whole image - stretched to the box. */
+    public void region(ResourceLocation location, int x0, int y0, int x1, int y1,
+                       float u0, float v0, float u1, float v1, int tint) {
+        if (x1 <= x0 || y1 <= y0) {
+            return;
+        }
+        AbstractTexture texture;
+        try {
+            texture = Minecraft.getInstance().getTextureManager().getTexture(location);
+        } catch (Throwable missing) {
+            return;
+        }
+        int c = fade(tint);
+        if (texture == null || (c >>> 24) == 0) {
+            return;
+        }
+        use(texture.getId(), null);
+        quad(x0 + ox, y0 + oy, x1 + ox, y1 + oy, u0, v0, u1, v1, c, c, c, c);
+    }
+
     /** A texture file, contained in the box at its own proportions, through the same batch. */
     private void texture(ResourceLocation location, int x0, int y0, int x1, int y1, int tint, boolean contain) {
         AbstractTexture texture;
@@ -447,6 +467,72 @@ public final class McCanvas implements Canvas {
             }
         } finally {
             unwind(poses, top);
+            entity.yBodyRot = oldBody;
+            entity.setYRot(oldY);
+            entity.setXRot(oldX);
+            entity.yHeadRotO = oldHeadO;
+            entity.yHeadRot = oldHead;
+        }
+        popClip();
+    }
+
+    /**
+     * Someone else standing in the box, turned a little to the side - the body being looted.
+     *
+     * <p>A downed player lies flat in the world and the practice body is in the sleeping pose; here
+     * both are stood up for the length of the draw, so their gear reads the way your own does.</p>
+     */
+    @Override
+    public void body(int entityId, int x0, int y0, int x1, int y1) {
+        Minecraft mc = Minecraft.getInstance();
+        if (g == null || mc.level == null || !(mc.level.getEntity(entityId) instanceof LivingEntity entity)) {
+            return;
+        }
+        flush();
+        int bx0 = x0 + ox;
+        int by0 = y0 + oy;
+        int bx1 = x1 + ox;
+        int by1 = y1 + oy;
+        int cx = (bx0 + bx1) / 2;
+        int feet = by1 - Math.round((by1 - by0) * 0.012F);
+        int scale = Math.max(8, Math.round((by1 - by0) / 1.92F));
+        float yaw = 22.0F;
+
+        pushClip(x0 - Math.round((x1 - x0) * 0.1F), y0 - 8, x1 + Math.round((x1 - x0) * 0.1F), y1 + 8);
+        Quaternionf pose = new Quaternionf().rotateZ((float) Math.PI);
+        Quaternionf camera = new Quaternionf().rotateX(0.0F);
+        pose.mul(camera);
+        float oldBody = entity.yBodyRot;
+        float oldY = entity.getYRot();
+        float oldX = entity.getXRot();
+        float oldHeadO = entity.yHeadRotO;
+        float oldHead = entity.yHeadRot;
+        net.minecraft.world.entity.Pose oldPose = entity.getPose();
+        PoseStack poses = g.pose();
+        PoseStack.Pose top = poses.last();
+        OptionInstance<GraphicsStatus> graphics = mc.options.graphicsMode();
+        GraphicsStatus graphicsBefore = graphics.get();
+        com.barbwra.mlum.client.downed.DownedClientEvents.portrait = true;
+        try {
+            entity.setPose(net.minecraft.world.entity.Pose.STANDING);
+            entity.yBodyRot = 180.0F + yaw * 0.5F;
+            entity.setYRot(180.0F + yaw);
+            entity.setXRot(0.0F);
+            entity.yHeadRot = entity.getYRot();
+            entity.yHeadRotO = entity.getYRot();
+            poses.pushPose();
+            poses.translate(0.0F, 0.0F, z);
+            InventoryScreen.renderEntityInInventory(g, cx, feet, scale, pose, camera, entity);
+        } catch (Throwable broken) {
+            mc.getEntityRenderDispatcher().setRenderShadow(true);
+            Lighting.setupFor3DItems();
+            if (graphics.get() != graphicsBefore) {
+                graphics.set(graphicsBefore);
+            }
+        } finally {
+            com.barbwra.mlum.client.downed.DownedClientEvents.portrait = false;
+            unwind(poses, top);
+            entity.setPose(oldPose);
             entity.yBodyRot = oldBody;
             entity.setYRot(oldY);
             entity.setXRot(oldX);

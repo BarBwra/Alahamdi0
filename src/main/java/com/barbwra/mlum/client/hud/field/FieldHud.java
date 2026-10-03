@@ -28,17 +28,21 @@ import net.minecraftforge.api.distmarker.OnlyIn;
  *                         [ SW ''|''' W '''|'' NW ]
  *                                 [ 229 ]
  *
- *  +--LV 7 · ----------\                                 /-----------M4A1-+
- *  | [~~ heartbeat ~~]  (shield)        M4A1          | AUTO    [ gun   ] |
- *  |                    ( 100  )   [] [##] []          | 28/120  [ art   ] |
- *  \ food ======== ----------+   the belt, sel. big     +|||||||||||||||||||+
+ *  +--LV 7 · ---------------\                            /-----------M4A1-+
+ *  | [face] [~~ heartbeat ~~]  (shield)    M4A1        | AUTO    [ gun   ] |
+ *  |                           ( 100  )               | 28/120  [ art   ] |
+ *  \ food =============== -------+  [][][][##][][][][]  +|||||||||||||||||||+
  * </pre>
  *
- * <p><b>Two devices and a belt.</b> Bottom left is a wrist unit: a heartbeat written across a small
- * screen the way a hospital monitor writes it, faster and redder the less health is left, with the
- * health number inside a shield whose ten pieces are the armour - the armour protects the health,
- * so the health sits inside it - and the food bar underneath. Its top edge is the level bar.
- * Bottom right is its mirror for whatever is in hand. The belt between them is the hotbar.</p>
+ * <p><b>Two devices and a belt.</b> Bottom left is a wrist unit: your own face, a heartbeat written
+ * across a small screen the way a hospital monitor writes it, faster and redder the less health is
+ * left, the health number inside a shield whose ten pieces are the armour - the armour protects the
+ * health, so the health sits inside it - and the food bar underneath. Its top edge is the level bar.
+ * Bottom right is its mirror for whatever is in hand. The belt between them is the hotbar: all nine
+ * cells side by side, always, the selected one marked - nothing slides or grows.</p>
+ *
+ * <p>{@code fieldHudScale} in the client config sizes the whole thing; each part grows from its own
+ * corner of the screen.</p>
  *
  * <p><b>One look for both screens.</b> They are monochrome in the HUD's own colour, the heartbeat
  * and the gun alike, so the two units read as one kit rather than two widgets that happen to share
@@ -66,7 +70,7 @@ public final class FieldHud {
     static final int INK = 0xFF1A1D17;
 
     /* the wrist device and the weapon panel - the panel deliberately the smaller of the two */
-    private static final int WRIST_W = 114;
+    private static final int WRIST_W = 136;
     private static final int WRIST_H = 42;
     private static final int SLAB_W = 100;
     private static final int SLAB_H = 38;
@@ -78,13 +82,10 @@ public final class FieldHud {
     private static long lastFrame = -1L;
     private static float lastHealth = -1.0F;
     private static long hitAt = -10_000L;
-    private static int lastSelected = -1;
-    private static long beltAt = -10_000L;
 
     public static void reset() {
         lastFrame = -1L;
         lastHealth = -1.0F;
-        lastSelected = -1;
         EMBLEM.reset();
     }
 
@@ -114,12 +115,6 @@ public final class FieldHud {
         EMBLEM.track(Math.min(20, player.getArmorValue()), now);
 
         Inventory inv = player.getInventory();
-        if (inv.selected != lastSelected) {
-            if (lastSelected >= 0) {
-                beltAt = now;
-            }
-            lastSelected = inv.selected;
-        }
 
         int accent = MlumConfig.fieldHudAccent();
         int shake = now - hitAt < 160L && Anim.enabled() ? ((now / 40L) % 2 == 0 ? 1 : -1) : 0;
@@ -127,21 +122,32 @@ public final class FieldHud {
         boolean riding = SbwCompat.isRiding(player);
         boolean down = com.barbwra.mlum.client.downed.ClientDowned.selfDowned();
 
+        float k = MlumConfig.fieldHudScale();
         HudPen pen = PEN;
         pen.begin(graphics);
         try {
+            pen.zoom(width / 2.0F, 0.0F, k);
             compass(pen, player, partialTick, width, accent);
             if (survival) {
+                pen.zoom(MARGIN, height - MARGIN, k);
                 wrist(pen, player, MARGIN + shake, height - MARGIN - WRIST_H, hp, accent, now);
             }
             if (!down) {
-                // flat on your back the belt and the gun are out of reach; only the wrist stays
-                belt(pen, inv, width, height, accent, now);
+                // flat on your back the belt and the gun are out of reach; only the wrist stays.
+                // On a narrow screen the belt would run into the two panels, so it sits above them
+                float half = ((CELL + GAP) * 9 / 2.0F + 20.0F) * k;
+                boolean room = width / 2.0F - half > MARGIN + WRIST_W * k + 4
+                        && width / 2.0F + half < width - MARGIN - SLAB_W * k - 4;
+                float floor = room ? height : height - MARGIN - Math.max(WRIST_H, SLAB_H) * k - 4.0F;
+                pen.zoom(width / 2.0F, floor, k);
+                belt(pen, inv, width, floor, accent);
             }
             if (!riding && !down) {
+                pen.zoom(width - MARGIN, height - MARGIN, k);
                 slab(pen, player, inv.getSelected(), width - MARGIN - SLAB_W - shake, height - MARGIN - SLAB_H, accent, now);
             }
         } finally {
+            pen.unzoom();
             pen.end();
         }
 
@@ -243,9 +249,21 @@ public final class FieldHud {
         pen.text(lv, x + 4, y + 6.5F, HudPen.LEFT, flourish < 1.0F ? xpColour : FAINT);
         pen.rect(x + 5 + pen.width(lv), y + 3.5F, 1.5F, 1.5F, alpha(accent, 0.4F + 0.6F * ECG.beat(now)));
 
-        float sx = x + 4;
+        // your own face, in a recessed frame; it flashes red for a moment when you are hit
+        float fx = x + 4;
+        float fy = y + 9;
+        float fs = 20;
+        pen.rect(fx - 1, fy - 1, fs + 2, fs + 2, 0xE6020302);
+        float hit = Mth.clamp(1.0F - (now - hitAt) / 260.0F, 0.0F, 1.0F);
+        pen.face(player.getSkinTextureLocation(), fx, fy, fs, Anim.mix(0xFFFFFFFF, 0xFFFF6A50, hit));
+        pen.rect(fx, fy, fs, 1, 0x14FFFFFF);
+        if (hp <= 0.3F) {
+            pen.rect(fx, fy, fs, fs, alpha(RUST, 0.18F * blink(now, true)));
+        }
+
+        float sx = x + 28;
         float sy = y + 9;
-        float sw = 64;
+        float sw = 62;
         float sh = 20;
         int colour = hp <= 0.3F ? RUST : hp <= 0.6F ? WHEAT : accent;
         boolean low = hp <= 0.3F;
@@ -254,7 +272,7 @@ public final class FieldHud {
         glass(pen, sx, sy, sw, sh);
 
         // the health inside its armour
-        float mid = x + 92;
+        float mid = x + WRIST_W - 22;
         EMBLEM.draw(pen, mid - EMBLEM.width() / 2.0F, y + 6, now);
         sprite(pen, HEART, "#", new int[]{RUST}, mid - 2.1F, y + 11.5F, 0.6F, blink(now, low));
         Shaped num = pen.pixel(String.valueOf(Math.round(hp * 100.0F)), 9.0F, 700);
@@ -264,7 +282,7 @@ public final class FieldHud {
 
         // food underneath the heartbeat
         float food = Mth.clamp(player.getFoodData().getFoodLevel() / 20.0F, 0.0F, 1.0F);
-        foodBar(pen, sx, y + 35, sw, food, now);
+        foodBar(pen, fx, y + 35, sx + sw - fx, food, now);
     }
 
     private static void foodBar(HudPen pen, float x, float y, float w, float food, long now) {
@@ -281,44 +299,27 @@ public final class FieldHud {
 
     /* ================================================================== the belt */
 
-    private static final float[] BELT_OFFSET = {0, 19, 33, 43, 50, 55, 58, 60, 61};
-    private static final float[] BELT_DROP = {0, 1, 3, 5, 6, 6, 6, 6, 6};
+    private static final float CELL = 17.0F;
+    private static final float GAP = 1.5F;
 
-    private static void belt(HudPen pen, Inventory inv, int width, int height, int accent, long now) {
+    /** All nine cells in a row, always; the selected one lit. Nothing moves when you scroll. */
+    private static void belt(HudPen pen, Inventory inv, int width, float height, int accent) {
         int sel = inv.selected;
-        float e = beltOpen(now);
+        float stride = CELL + GAP;
+        float total = stride * 9 - GAP;
         float cx = width / 2.0F;
-        float cy = height - 18.0F;
-        // nearest last, so the selected cell is drawn on top of its neighbours
-        for (int ring = 8; ring >= 0; ring--) {
-            for (int side = -1; side <= 1; side += 2) {
-                int i = sel + ring * side;
-                if (ring == 0 && side > 0) {
-                    continue;
-                }
-                if (i < 0 || i > 8) {
-                    continue;
-                }
-                float cSize = ring == 0 ? 20 : ring == 1 ? 14 : ring == 2 ? 10 : 8;
-                float cA = ring == 0 ? 1.0F : ring == 1 ? 0.82F : ring == 2 ? 0.42F : 0.0F;
-                float size = Mth.lerp(e, cSize, i == sel ? 17 : 14);
-                float off = Mth.lerp(e, side * BELT_OFFSET[ring], (i - 4) * 16.0F);
-                float drop = Mth.lerp(e, BELT_DROP[ring], 0);
-                float a = Mth.lerp(e, cA, 1.0F);
-                if (a <= 0.02F) {
-                    continue;
-                }
-                cell(pen, cx + off, cy + drop, size, inv.getItem(i), i == sel, accent, a);
-                if (e > 0.3F) {
-                    pen.text(pen.pixel(String.valueOf(i + 1), 4.0F, 600), cx + off - size / 2 + 1.2F,
-                            cy - size / 2 + 4.0F, HudPen.LEFT, alpha(FAINT, e));
-                }
-            }
+        float cy = height - 4.0F - CELL / 2.0F;
+        float x0 = cx - total / 2.0F + CELL / 2.0F;
+        for (int i = 0; i < 9; i++) {
+            float x = x0 + i * stride;
+            cell(pen, x, cy, CELL, inv.getItem(i), i == sel, accent, 1.0F);
+            pen.text(pen.pixel(String.valueOf(i + 1), 4.0F, 600), x - CELL / 2 + 1.5F, cy - CELL / 2 + 4.2F,
+                    HudPen.LEFT, alpha(i == sel ? accent : FAINT, 0.9F));
         }
 
         ItemStack off = inv.offhand.get(0);
-        if (!off.isEmpty() && e < 0.95F) {
-            cell(pen, cx - 66, cy + 2, 12, off, false, accent, 1.0F - e);
+        if (!off.isEmpty()) {
+            cell(pen, cx - total / 2.0F - 6.0F - 7.0F, cy + 1.5F, 14, off, false, accent, 0.9F);
         }
 
         ItemStack held = inv.getItem(sel);
@@ -326,20 +327,8 @@ public final class FieldHud {
         if (!name.isEmpty()) {
             boolean latin = isLatin(name);
             Shaped s = latin ? pen.pixel(name, 7.0F, 700) : pen.kufi(name, 5.5F, 600);
-            pen.shadowed(s, cx, cy - 14.5F, HudPen.CENTER, alpha(BONE, 0.95F));
+            pen.shadowed(s, cx, cy - CELL / 2 - 5.0F, HudPen.CENTER, alpha(BONE, 0.95F));
         }
-    }
-
-    /** 0 collapsed, 1 fully open; opens for a moment after the selection changes. */
-    private static float beltOpen(long now) {
-        if (!Anim.enabled()) {
-            return 0.0F;
-        }
-        float t = (now - beltAt) / 1000.0F;
-        if (t < 1.4F) {
-            return Anim.easeOut(Math.min(1.0F, t * 5.0F));
-        }
-        return 1.0F - Anim.easeOut(Math.min(1.0F, (t - 1.4F) * 3.0F));
     }
 
     private static void cell(HudPen pen, float cx, float cy, float size, ItemStack stack, boolean selected,

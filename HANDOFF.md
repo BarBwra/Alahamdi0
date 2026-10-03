@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.9.0**, network protocol **13**.
+Last updated at **mlum 3.10.0**, network protocol **14**.
 
 ---
 
@@ -233,7 +233,8 @@ id|name|description|icon|level1|level2|level3|price1|price2|price3[|soon]
 
 | id | name | what it does | where |
 |---|---|---|---|
-| `attachments` | تعبئة أسرع | reloads 20 / 50 / 100% faster | mixins, §5.4 |
+| `attachments` | تعبئة أسرع | reloads 15 / 30 / 45% faster | mixins, §5.4 |
+| `quiet_hands` | إيد خفيفة | the fast search's noise chance 50% → 40 / 30 / 20% | `SkillEffects.noiseChance` |
 | `scout` | الباحث | container markers through walls, 8/12/16 blocks; level 3 dims the empty ones | `LootMarkers`, `ScoutInfo` |
 | `butcher` | الجزار | zombies drop more meat | `LivingDropsEvent` |
 | `blade_master` | السلاح اليدوي | melee kills drop more of **everything** | `LivingDropsEvent` |
@@ -263,7 +264,7 @@ script asks `ModernKineticGunScriptAPI.getReloadTime()` (`now - reloadTimestamp`
 rounds and when to finish — the default tick and every Lua script (e.g. `xmag_reload_logic.lua`).
 
 - `mixin/TaczReloadMixin` (common): `@Inject RETURN` on `getReloadTime`, multiplies the answer by
-  `ReloadSkill.factor(getShooter())` — ×1.2 / ×1.5 / ×2.0. Zero (no reload) stays zero.
+  `ReloadSkill.factor(getShooter())` — ×1.15 / ×1.30 / ×1.45. Zero (no reload) stays zero.
 - `mixin/TaczReloadAnimMixin` (client): `@ModifyVariable HEAD` on
   `ObjectAnimationRunner.updateProgress(long)`, scaling the frame step for animations whose name
   starts with `reload`, so the hands keep up with the rounds.
@@ -461,7 +462,12 @@ rarity), reloadable with `/mlum_inventory reload`.
 **Forge keeps existing values for existing worlds. A changed default only affects fresh worlds.**
 
 So after changing `skills`, `ranks`, or any list default, the user's live server **will not see it**
-until they delete that section from `world/serverconfig/mlum-server.toml`. Say so every time. The
+until they delete that section from `world/serverconfig/mlum-server.toml`. Say so every time.
+
+**Since 3.10.0 there is a way round it: `ConfigMigration`.** The server file carries
+`configVersion`; each step there runs once on load, replaces a value only if it still holds the *old
+default*, and bumps the number. When a release changes a default the live server should get, add a
+step there (and bump `CURRENT`) instead of asking the user to edit the file. The
 local test world `New World (4)` was edited by hand for this reason (backup at
 `mlum-server.toml.bak-before-3.7.0`).
 
@@ -484,25 +490,46 @@ firearm card only draws when the field HUD is off. `HudPen` is a thin wrapper ov
 - Markers are drawn **in screen space** by projecting with the matrices captured in
   `RenderLevelStageEvent` (`WorldProjector`). World-space lines are dropped by shader packs — that is
   most likely why the old scout outlines were never seen.
-- Right-clicking a container starts a search (`LootSearch`, server): 2 s, or 0.25 s while sneaking with
-  a 25% chance of a noise that pauses 0.5 s and pulls nearby monsters. Moving, taking damage or
-  releasing the button cancels. On completion the normal open path runs (`ServerEvents.tryTakeover`
-  or `BlockState.use`). Config `[loot_search]`.
+- One right-click on a container starts a search (`LootSearch`, server) — no holding: 1.5 s, or
+  0.75 s while sneaking with a 50% chance (less with `quiet_hands`) of a noise that pauses 0.5 s and
+  pulls nearby monsters. Moving, taking damage or a left click cancels. On completion the normal
+  open path runs (`ServerEvents.tryTakeover` or `BlockState.use`). Config `[loot_search]`.
+- While searching or reviving, `RummageHands` cancels the normal first-person hands (TACZ's gun
+  included) and draws both bare arms in vanilla's two-handed-map pose, digging. `SearchSpinner` is
+  the shared eight-dot spinner; `Shapes` draws anti-aliased rings out of row runs.
 
 ### Downed and revive (`downed/`, `client/downed/`)
-- Lethal damage downs a player instead (`DownedService`, HIGH `LivingDeathEvent`): 180 s bleed-out,
+- Lethal damage downs a player instead (`DownedService`, HIGH `LivingDeathEvent`): 360 s bleed-out,
   smaller hitbox via `EntityEvent.Size`, drawn in the sleeping pose for others, camera locked to the
   sky. Mobs drop and refuse targets on downed players. Players can finish them (config).
-- F (`key.mlum.interact`) on a body: wheel picks loot / revive / drag. Revive = hold 10 s; oxygen item
+- F (`key.mlum.interact`) on a body: wheel picks loot / revive (drag was removed in 3.10). Revive = hold 10 s; oxygen item
   in hand = hold 5 s and consumed; defib item = instant, costs `defibCost` charge (`ChargeTag` NBT).
   Defib and oxygen are **placeholder items** from config (`blaze_rod`, `phantom_membrane`) until the
   real ones are made.
-- While down: tap F = distress to online faction members (cooldown), hold F 3 s = give up.
+- While down: the inventory key (E) = distress to online faction members (cooldown) - borrowed
+  rather than a new binding on E, which would show red in the controls screen; hold F 3 s = give up, which paints
+  the timer ring red as it fills. The ring is a real circle with M:SS inside.
+- Dying from the ground (bled out, gave up, finished off) leaves everything in one of the configured
+  non-VIP backpacks on the ground, the smallest that fits, more than one if needed (`DeathBag`).
 - After a revive: slowness + weakness, and a shorter timer if downed again within 120 s.
 - Loot view (`DownedLoot`): 54-slot container over the body's inventory, armour, offhand and the
-  Curios back slot.
+  Curios back slot. The screen gets the body's entity id after the vault bytes
+  (`ServerEvents.openBodyScreen`, `MlumMenu.bodyId`) and draws them standing with their gear in a
+  small figure panel (`InvView.bodyPanel`, cells 36..41) over their 36 inventory cells.
 - Test: `/mlum downed dummy|self|revive <player>|charge|list` (op 2). The dummy is a `DownedDummy`
   entity that can be looted/revived/dragged.
+
+### Also in 3.10.0
+- Field HUD: the belt is static (nine even cells, no carousel), the wrist shows the player's face
+  (`HudPen.face`, skin UV 8..16 + hat), and `fieldHudScale` (client, default 1.15) zooms each panel
+  from its own corner (`HudPen.zoom`). The belt moves above the panels on screens too narrow for it.
+- Loot marker mouse redrawn: 15×22 cells sized from screen height, drop shadow, green right button
+  that clicks every 1.4 s while focused.
+- Gun details in the bag show the round it fires and the magazine size (`TaczAttachments.ammoOf`).
+- Quick access row runs left to right (3 on the left).
+- Ghillie suits (`camo/Ghillie`, `GhillieClient`): a full green or snow set touching its cover sets
+  the server-side invisible flag (hides body, shadow, name for everyone); other clients also skip
+  rendering armour and held items. Ids in `[camouflage]`.
 
 ## 12. Open items
 

@@ -32,7 +32,6 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.living.LivingChangeTargetEvent;
@@ -64,7 +63,8 @@ import java.util.UUID;
  * <h2>The rules</h2>
  * <ul>
  *   <li>Down for {@code bleedOutSeconds}; after that a real death, with the death message the
- *       blow would have given ("slain by Zombie"), drops and all.</li>
+ *       blow would have given ("slain by Zombie"). What they carried is left in a backpack on the
+ *       ground where they lay, not scattered - see {@link DeathBag}.</li>
  *   <li>Zombies and every other mob ignore a downed player - they stop targeting them and their
  *       hits do nothing. Another player's attack finishes them, and so does the world: lava,
  *       drowning, the void.</li>
@@ -73,7 +73,7 @@ import java.util.UUID;
  *       {@code oxygenSeconds} and is spent; the defibrillator revives at once and spends charge.</li>
  *   <li>A revived player gets up weak for a few seconds, and if they go down again soon after,
  *       the shorter timer applies, so a fight cannot be won by being revived over and over.</li>
- *   <li>A downed player can tap F to call their faction once in a while, or hold F to give up.</li>
+ *   <li>A downed player can press E to call their faction once in a while, or hold F to give up.</li>
  *   <li>Logging out while down saves the clock; logging back in finds them still down.</li>
  * </ul>
  *
@@ -128,8 +128,6 @@ public final class DownedService {
     private static final Map<UUID, Integer> DISTRESS_AT = new HashMap<>();
     /** By the target's entity id: one reviver at a time per body. */
     private static final Map<Integer, Revive> REVIVES = new HashMap<>();
-    /** Dragger to the body being dragged. */
-    private static final Map<UUID, Entity> DRAGS = new HashMap<>();
 
     public static boolean isDowned(Player player) {
         return DownedState.isDowned(player);
@@ -144,6 +142,8 @@ public final class DownedService {
         }
         UUID id = player.getUUID();
         if (FINISHING.remove(id) || DOWNS.containsKey(id)) {
+            // dying from the ground - bled out, gave up or finished off: everything goes in a bag
+            DeathBag.expect(player);
             clear(player);
             player.getPersistentData().remove(SAVE_KEY);
             return;
@@ -197,8 +197,6 @@ public final class DownedService {
         }
         REVIVES.remove(player.getId());
         REVIVES.values().removeIf(r -> r.reviver.equals(id));
-        DRAGS.remove(id);
-        DRAGS.values().removeIf(e -> e == player);
         if (was) {
             player.refreshDimensions();
             sync(player);
@@ -366,35 +364,6 @@ public final class DownedService {
             }
             revive(r.target, reviver);
         }
-
-        if (!DRAGS.isEmpty()) {
-            Iterator<Map.Entry<UUID, Entity>> drags = DRAGS.entrySet().iterator();
-            while (drags.hasNext()) {
-                Map.Entry<UUID, Entity> e = drags.next();
-                ServerPlayer dragger = server.getPlayerList().getPlayer(e.getKey());
-                Entity body = e.getValue();
-                if (dragger == null || !canReach(dragger, body)) {
-                    drags.remove();
-                    continue;
-                }
-                drag(dragger, body);
-            }
-        }
-    }
-
-    /** The body follows a step behind the one pulling it, along the ground. */
-    private static void drag(ServerPlayer dragger, Entity body) {
-        Vec3 back = Vec3.directionFromRotation(0.0F, dragger.getYRot()).scale(-1.1D);
-        Vec3 to = dragger.position().add(back);
-        if (body.position().distanceToSqr(to) < 0.04D) {
-            return;
-        }
-        Vec3 step = body.position().add(to.subtract(body.position()).scale(0.5D));
-        if (body instanceof ServerPlayer player) {
-            player.connection.teleport(step.x, dragger.getY(), step.z, player.getYRot(), player.getXRot());
-        } else {
-            body.teleportTo(step.x, dragger.getY(), step.z);
-        }
     }
 
     private static void bleedOut(ServerPlayer player) {
@@ -472,7 +441,6 @@ public final class DownedService {
         switch (action) {
             case C2SDownedAction.LOOT -> loot(actor, body);
             case C2SDownedAction.REVIVE -> holdRevive(actor, body, now);
-            case C2SDownedAction.DRAG -> toggleDrag(actor, body);
             case C2SDownedAction.DEFIB -> defib(actor, body);
             default -> {
             }
@@ -484,7 +452,7 @@ public final class DownedService {
             return;
         }
         Component title = body instanceof Player p ? p.getDisplayName() : Component.literal("Test body");
-        ServerEvents.openMlumScreen(actor, new DownedLoot(body), title, DownedLoot.ROWS);
+        ServerEvents.openBodyScreen(actor, new DownedLoot(body), title, DownedLoot.ROWS, body.getId());
     }
 
     private static void holdRevive(ServerPlayer actor, Entity body, int now) {
@@ -499,18 +467,6 @@ public final class DownedService {
         int seconds = oxygen ? MlumConfig.oxygenSeconds() : MlumConfig.reviveSeconds();
         REVIVES.put(body.getId(), new Revive(actor.getUUID(), body, seconds * 20, oxygen, now));
         setProgress(body, 0.0F, actor.getGameProfile().getName());
-    }
-
-    private static void toggleDrag(ServerPlayer actor, Entity body) {
-        if (DRAGS.get(actor.getUUID()) == body) {
-            DRAGS.remove(actor.getUUID());
-        } else {
-            DRAGS.values().removeIf(e -> e == body);
-            DRAGS.put(actor.getUUID(), body);
-        }
-        if (body instanceof ServerPlayer player) {
-            sync(player);
-        }
     }
 
     private static void defib(ServerPlayer actor, Entity body) {
@@ -615,10 +571,9 @@ public final class DownedService {
             return;
         }
         Down d = DOWNS.get(player.getUUID());
-        boolean dragged = DRAGS.containsValue(player);
         S2CDowned msg = d == null
-                ? new S2CDowned(player.getId(), false, 0, 1, 0.0F, "", false)
-                : new S2CDowned(player.getId(), true, d.remaining, d.total, progress, reviver, dragged);
+                ? new S2CDowned(player.getId(), false, 0, 1, 0.0F, "")
+                : new S2CDowned(player.getId(), true, d.remaining, d.total, progress, reviver);
         ModNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> player), msg);
     }
 
@@ -635,7 +590,7 @@ public final class DownedService {
                 && event.getEntity() instanceof ServerPlayer watcher && watcher.connection != null) {
             Down d = DOWNS.get(target.getUUID());
             ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> watcher),
-                    new S2CDowned(target.getId(), true, d.remaining, d.total, 0.0F, "", DRAGS.containsValue(target)));
+                    new S2CDowned(target.getId(), true, d.remaining, d.total, 0.0F, ""));
         }
     }
 

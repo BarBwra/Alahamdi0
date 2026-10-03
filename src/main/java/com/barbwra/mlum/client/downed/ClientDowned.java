@@ -19,7 +19,7 @@ public final class ClientDowned {
     private ClientDowned() {
     }
 
-    public record Info(int remaining, int total, float revive, String reviver, boolean dragged, long at) {
+    public record Info(int remaining, int total, float revive, String reviver, long at) {
     }
 
     private static final Map<Integer, Info> INFO = new HashMap<>();
@@ -28,7 +28,7 @@ public final class ClientDowned {
         DownedState.setClient(msg.entityId(), msg.downed());
         if (msg.downed()) {
             INFO.put(msg.entityId(), new Info(msg.remaining(), msg.total(), msg.revive(), msg.reviver(),
-                    msg.dragged(), Anim.now()));
+                    Anim.now()));
         } else {
             INFO.remove(msg.entityId());
         }

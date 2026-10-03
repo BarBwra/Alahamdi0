@@ -40,16 +40,15 @@ import java.util.UUID;
  * Searching: a container opens after a short search instead of on the click.
  *
  * <h2>How a search runs</h2>
- * <p>The right-click that would have opened the container starts a search instead, and the player
- * keeps holding the button. Vanilla repeats a held use every four ticks, and every repeat on the same
- * container is a heartbeat; the search lives while heartbeats keep coming, the player stays where
- * they started, and nothing hurts them. When it finishes, the container is opened through exactly
- * the path a click would have taken - this mod's own chest screen for vanilla chests and barrels,
- * and the block's own behaviour for everything else.</p>
+ * <p>The right-click that would have opened the container starts a search instead. One click is
+ * enough - the button does not have to be held. The search lives while the player stays where they
+ * started, stays in reach, and nothing hurts them; a left click calls it off. When it finishes, the
+ * container is opened through exactly the path a click would have taken - this mod's own chest
+ * screen for vanilla chests and barrels, and the block's own behaviour for everything else.</p>
  *
  * <h2>Shift</h2>
  * <p>Held during a search, Shift switches it to the fast rate. A fast search may knock something
- * over: once per search it rolls the noise chance, and if it hits, at some random point the search
+ * over: once per search it rolls the noise chance (less with the quiet hands skill), and if it hits, at some random point the search
  * stalls, a clatter plays that everyone nearby hears, and hostiles within the radius come for the
  * player. Fast is a trade, not a shortcut.</p>
  *
@@ -63,8 +62,6 @@ public final class LootSearch {
     private LootSearch() {
     }
 
-    /** No heartbeat for this long means the button was let go. Vanilla repeats every four. */
-    private static final int BEAT_TIMEOUT = 10;
     /** Further than this from where the search started and it is cancelled. */
     private static final double MOVE_LIMIT_SQ = 0.75D * 0.75D;
     private static final double REACH_SQ = 6.0D * 6.0D;
@@ -75,18 +72,16 @@ public final class LootSearch {
         final BlockHitResult hit;
         final Vec3 origin;
         float progress;
-        int lastBeat;
         int pausedUntil;
         boolean rolled;
         float noiseAt = -1.0F;
         int ticks;
 
-        Session(BlockPos pos, long key, BlockHitResult hit, Vec3 origin, int now) {
+        Session(BlockPos pos, long key, BlockHitResult hit, Vec3 origin) {
             this.pos = pos;
             this.key = key;
             this.hit = hit;
             this.origin = origin;
-            this.lastBeat = now;
         }
     }
 
@@ -117,12 +112,11 @@ public final class LootSearch {
             return;
         }
         long key = LootRules.key(pos, LootRules.partner(level, pos, state));
-        int now = tick(player);
 
         Session running = SESSIONS.get(player.getUUID());
         if (running != null && running.key == key) {
-            // the button is still held: a heartbeat. Cancelled so a held Shift can never place a block
-            running.lastBeat = now;
+            // already searching this one - a second click, or vanilla repeating a held button.
+            // Cancelled so a held Shift can never place a block
             consume(event);
             return;
         }
@@ -143,7 +137,7 @@ public final class LootSearch {
         if (running != null) {
             cancel(player, running);
         }
-        Session session = new Session(pos.immutable(), key, event.getHitVec(), player.position(), now);
+        Session session = new Session(pos.immutable(), key, event.getHitVec(), player.position());
         SESSIONS.put(player.getUUID(), session);
         rummage(level, pos);
         send(player, S2CLootSearch.PROGRESS, session);
@@ -155,7 +149,7 @@ public final class LootSearch {
         event.setCancellationResult(InteractionResult.CONSUME);
     }
 
-    /** The client let go of the button. */
+    /** The player called the search off - a left click. */
     public static void cancelFromClient(ServerPlayer player) {
         Session s = SESSIONS.get(player.getUUID());
         if (s != null) {
@@ -181,7 +175,7 @@ public final class LootSearch {
                 it.remove();
                 continue;
             }
-            if (!stillValid(player, s, now)) {
+            if (!stillValid(player, s)) {
                 it.remove();
                 send(player, S2CLootSearch.CANCEL, s);
                 continue;
@@ -190,7 +184,7 @@ public final class LootSearch {
             boolean fast = player.isShiftKeyDown();
             if (fast && !s.rolled) {
                 s.rolled = true;
-                if (player.getRandom().nextFloat() < MlumConfig.lootNoiseChance()) {
+                if (player.getRandom().nextFloat() < com.barbwra.mlum.skill.SkillEffects.noiseChance(player, MlumConfig.lootNoiseChance())) {
                     float from = Math.max(s.progress, 0.15F);
                     s.noiseAt = from + player.getRandom().nextFloat() * Math.max(0.0F, 0.85F - from);
                 }
@@ -222,8 +216,8 @@ public final class LootSearch {
         }
     }
 
-    private static boolean stillValid(ServerPlayer player, Session s, int now) {
-        if (now - s.lastBeat > BEAT_TIMEOUT || player.containerMenu != player.inventoryMenu) {
+    private static boolean stillValid(ServerPlayer player, Session s) {
+        if (player.containerMenu != player.inventoryMenu) {
             return false;
         }
         if (player.position().distanceToSqr(s.origin) > MOVE_LIMIT_SQ) {
@@ -307,10 +301,5 @@ public final class LootSearch {
         }
         ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
                 new S2CLootSearch(state, s.pos, Math.min(1.0F, s.progress), fast, paused));
-    }
-
-    private static int tick(ServerPlayer player) {
-        MinecraftServer server = player.getServer();
-        return server == null ? 0 : server.getTickCount();
     }
 }

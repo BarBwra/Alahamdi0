@@ -99,6 +99,26 @@ public final class TaczAttachments {
      * from whatever magazine is fitted, which is exactly what TACZ's own helper adds up. The HUD's
      * round strip needs it to draw the spent rounds as well as the loaded ones.</p>
      */
+    /**
+     * One round of what this gun fires, as an item - for showing which ammunition it takes. Empty
+     * when it is not a gun or TACZ does not know it.
+     */
+    public static ItemStack ammoOf(ItemStack stack) {
+        IGun gun = gunOf(stack);
+        if (gun == null) {
+            return ItemStack.EMPTY;
+        }
+        try {
+            return com.tacz.guns.api.TimelessAPI.getCommonGunIndex(gun.getGunId(stack))
+                    .map(index -> index.getGunData().getAmmoId())
+                    .filter(java.util.Objects::nonNull)
+                    .map(id -> com.tacz.guns.api.item.builder.AmmoItemBuilder.create().setId(id).setCount(1).build())
+                    .orElse(ItemStack.EMPTY);
+        } catch (Throwable broken) {
+            return ItemStack.EMPTY;
+        }
+    }
+
     public static int magazineSize(ItemStack stack) {
         IGun gun = gunOf(stack);
         if (gun == null) {

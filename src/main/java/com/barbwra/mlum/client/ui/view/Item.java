@@ -26,6 +26,10 @@ public final class Item {
     public boolean gun;
     /** Wide artwork (a gun's HUD image) to contain instead of the square icon, or null. */
     public Object art;
+    /** For a gun: the round it fires, as an item to draw and its name, and the magazine size. */
+    public Object ammo;
+    public String ammoName;
+    public int magazine = -1;
     /** Multiplies the picture - dimmed rewards on locked milestones. */
     public int tint = 0xFFFFFFFF;
 
@@ -55,6 +59,9 @@ public final class Item {
         copy.h = h;
         copy.gun = gun;
         copy.art = art;
+        copy.ammo = ammo;
+        copy.ammoName = ammoName;
+        copy.magazine = magazine;
         copy.tint = tint;
         return copy;
     }

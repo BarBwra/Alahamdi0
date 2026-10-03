@@ -1,8 +1,27 @@
 # MlumInventory — Minecraft 1.20.1 / Forge 47.4.10
 
-**v3.9.0** (network protocol 13) — a new field HUD, timed container searching with loot markers, a
-downed-and-revive system, a reworked scout skill and a faster-reload skill. Details for developers
-are in `HANDOFF.md` §5.4 and §11b.
+**v3.10.0** (network protocol 14) — see "What is new in 3.10.0" below, and `HANDOFF.md` §5.4 and §11b
+for developers.
+
+---
+
+## What is new in 3.10.0
+
+| | |
+| --- | --- |
+| **Search** | one click (no holding), 1.5 s; Shift 0.75 s with a 50% noise chance; left click cancels. Both hands come up and dig while searching or reviving, with a new spinner |
+| **إيد خفيفة** | new skill: the fast search's noise chance 40 / 30 / 20% |
+| **تعبئة أسرع** | now 15 / 30 / 45% |
+| **Downed** | 360 s, a real ring with M:SS inside, "مصاب" in red, E calls for help, holding F turns the ring red, drag removed |
+| **Death bag** | dying from the ground leaves everything in a backpack sized to the loot (never the VIP one) |
+| **Loot a body** | their character with their gear on the left, their inventory under it |
+| **HUD** | static belt, your face on the wrist device, everything 15% bigger (`fieldHudScale`) |
+| **Marker mouse** | redrawn, bigger, green right button |
+| **Bag** | gun details show the ammo it takes; quick access runs 3 → 9 left to right |
+| **Ghillie suits** | full green suit in plants/leaves or snow suit in snow/ice: invisible, armour and all |
+
+Old server configs are brought up to date once, automatically (`configVersion`) — values you changed
+yourself are left alone.
 
 ---
 

@@ -65,7 +65,15 @@ public final class InvView {
         public boolean paged;
         public int page;
         public int pages = 1;
+        /**
+         * A downed body rather than a box: its entity id, or -1. The first 36 cells are then what
+         * they carry and cells 36..41 their gear, in {@link #GEAR_LABELS} order.
+         */
+        public int bodyId = -1;
     }
+
+    /** Cells of a downed body's loot screen that are their inventory; the gear follows. */
+    public static final int BODY_CELLS = 36;
 
     public static final class Model {
         public final List<Entry> entries = new ArrayList<>();
@@ -145,8 +153,14 @@ public final class InvView {
         Node centre = centre(m);
         centre.alignSelf = CENTER;
         Node left = col().gap(14);
-        left.add(m.chest != null ? chestPanel(m) : weaponsPanel(m));
-        left.add(detailsPanel(m));
+        if (m.chest != null && m.chest.bodyId >= 0) {
+            // looting someone: them, with their gear on, over what they carry - no details panel
+            left.add(bodyPanel(m));
+            left.add(chestPanel(m));
+        } else {
+            left.add(m.chest != null ? chestPanel(m) : weaponsPanel(m));
+            left.add(detailsPanel(m));
+        }
         inv.add(right, centre, left);
         main.add(inv);
         return main;
@@ -290,7 +304,8 @@ public final class InvView {
         aside.add(asideNum("9"));
         aside.add(asideText("· كل غرض خانة وحدة"));
         p.add(phead("الوصول السريع", aside));
-        Node g = grid(44, 44, 44, 44, 44, 44, 44).gap(4);
+        // left to right like the keys on the keyboard, 3 first - the rest of the screen runs right to left
+        Node g = grid(44, 44, 44, 44, 44, 44, 44).gap(4).ltr();
         for (int i = 0; i < 7; i++) {
             String key = "qa:" + i;
             int state = stateOf(m, key);
@@ -566,22 +581,87 @@ public final class InvView {
                 }
             }
             aside = aside();
-            aside.add(asideNum(used + " / " + ch.rows * 9));
+            aside.add(asideNum(used + " / " + cellsOf(ch)));
             aside.add(asideText("خانة"));
             aside.add(Css.btn("خذ الكل", Css.BTN, true, false).hit("lootall"));
         }
-        p.add(phead(ch.title, aside));
+        p.add(phead(ch.bodyId >= 0 ? "اللي معه" : ch.title, aside));
         Node g = grid(40, 40, 40, 40, 40, 40, 40, 40, 40).gap(4);
-        for (int i = 0; i < ch.rows * 9; i++) {
+        for (int i = 0; i < cellsOf(ch); i++) {
             String key = "box:" + i;
             Item it = i < ch.slots.length ? ch.slots[i] : null;
             g.add(Slots.slot(it, 40, 28, key.equals(m.hover), stateOf(m, key), null).hit(key, i));
         }
         p.add(g);
-        Node hint = txt("كل غرض في الصندوق ياخذ خانة وحدة، مهما كان حجمه في الحقيبة.", K(400), 11.5F, LH, Tok.FAINT);
-        hint.mt = 10;
-        p.add(hint);
+        if (ch.bodyId < 0) {
+            Node hint = txt("كل غرض في الصندوق ياخذ خانة وحدة، مهما كان حجمه في الحقيبة.", K(400), 11.5F, LH, Tok.FAINT);
+            hint.mt = 10;
+            p.add(hint);
+        }
         return p;
+    }
+
+    /** How many of the chest's cells are drawn as a grid: all of them, or a body's inventory only. */
+    static int cellsOf(Chest ch) {
+        return ch.bodyId >= 0 ? Math.min(BODY_CELLS, ch.rows * 9) : ch.rows * 9;
+    }
+
+    /* ---- a downed body ---- */
+
+    /**
+     * The person being looted, the way the centre column shows you - standing, gear around them -
+     * only smaller. Their gear slots are real cells of the loot screen: take from them, or put
+     * something on them, exactly as with the grid below.
+     */
+    static Node bodyPanel(Model m) {
+        Chest ch = m.chest;
+        Node p = panel(block()).tag("body-panel");
+        Node aside = aside();
+        aside.add(asideText("مصاب"));
+        p.add(phead(ch.title, aside));
+        Node fig = grid(48, 100, 48).gap(14).tag("body-fig");
+        fig.justify = CENTER;
+        fig.add(bodyGear(m, new int[]{0, 2, 4}));
+        Node body = Css.leaf(100, 200).tag("body-model");
+        body.under((cv, n) -> shadowEllipse(cv, n.x + 6, n.y + n.h + 8 - 12, n.w - 12, 12));
+        final int id = ch.bodyId;
+        body.over((cv, n) -> cv.body(id, Px.d(n.x), Px.d(n.y), Px.d(n.x + n.w), Px.d(n.y + n.h)));
+        fig.add(body);
+        fig.add(bodyGear(m, new int[]{1, 3, 5}));
+        p.add(fig);
+        return p;
+    }
+
+    static Node bodyGear(Model m, int[] gear) {
+        Node col = block().h(212);
+        float[] tops = {0, 80, 160};
+        for (int k = 0; k < 3; k++) {
+            int g = gear[k];
+            Node eq = col().align(CENTER).gap(2).abs(0, tops[k], 0, AUTO);
+            eq.add(bodyGearSlot(m, g));
+            eq.add(txt(GEAR_LABELS[g], K(400), 9.5F, 1.3F, Tok.MUTED));
+            col.add(eq);
+        }
+        return col;
+    }
+
+    static Node bodyGearSlot(Model m, int g) {
+        String key = "box:" + (BODY_CELLS + g);
+        Item it = BODY_CELLS + g < m.chest.slots.length ? m.chest.slots[BODY_CELLS + g] : null;
+        int state = stateOf(m, key);
+        if (state == Slots.IDLE && it == null && key.equals(m.hover)) {
+            state = Slots.OPEN;
+        }
+        Node s = Slots.slot(it, 44, 30, key.equals(m.hover), state, null).hit(key, BODY_CELLS + g);
+        if (it == null) {
+            String ghost = GEAR_GHOSTS[g];
+            int[] d = Art.dims(ghost);
+            float gw = d[0] * 2.5F;
+            float gh = d[1] * 2.5F;
+            s.over = chain(s.over, (c, n) -> Draw.raster(c, Art.ghost(ghost), n.x + (n.w - gw) / 2, n.y + (n.h - gh) / 2,
+                    gw, gh, Draw.rgba(0xFFFFFF, 0.15F)));
+        }
+        return s;
     }
 
     static Node pagerKey(String glyph, String id, boolean disabled, Model m) {
@@ -651,6 +731,21 @@ public final class InvView {
             price.add(txt("ما ينباع عند التاجر", K(400), 12, LH, Tok.FAINT));
         }
         info.add(price);
+        if (it.gun && it.ammoName != null && !it.ammoName.isEmpty()) {
+            // which rounds this gun takes - nothing else on the item says so
+            Node ammo = row().align(CENTER).gap(6).wrap();
+            ammo.mt = 8;
+            ammo.add(txt("الرصاص", K(400), 12, LH, Tok.MUTED));
+            Item round = new Item();
+            round.handle = it.ammo;
+            ammo.add(pictureOf(round, 18, 18));
+            ammo.add(txt(it.ammoName, K(700), 12.5F, LH, Tok.AMBER));
+            if (it.magazine > 0) {
+                ammo.add(txt("· المخزن", K(400), 12, LH, Tok.FAINT));
+                ammo.add(num(String.valueOf(it.magazine), 17, LH, Tok.AMBER));
+            }
+            info.add(ammo);
+        }
         Node size = row().align(CENTER).gap(6).wrap();
         size.mt = 8;
         size.add(txt("الحجم في الحقيبة", K(400), 12, LH, Tok.MUTED));

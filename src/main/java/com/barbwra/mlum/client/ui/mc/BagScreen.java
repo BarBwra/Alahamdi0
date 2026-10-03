@@ -308,6 +308,7 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
             ch.paged = menu.isVault();
             ch.page = menu.vaultPage() - 1;
             ch.pages = menu.vaultPages();
+            ch.bodyId = menu.bodyId();
             m.chest = ch;
         }
 
