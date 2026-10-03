@@ -339,7 +339,7 @@ public final class FieldHud {
             int remain = Math.max(1, (int) Math.ceil(left * seconds));
             pen.text(pen.pixel(String.valueOf(remain), 11.0F, 700), cx, cy + 4.0F, HudPen.CENTER, BONE);
             pen.text(pen.kufi("تختفي بعد " + remain + " ث", 5.5F, 700), x + 31, y + 12.0F, HudPen.LEFT, BONE);
-            pen.text(pen.kufi("لا تتحرك ولا تفك Shift", 4.6F, 600), x + 31, y + 21.0F, HudPen.LEFT, MUTED);
+            pen.text(pen.kufi("لا تتحرك ولا تقوم", 4.6F, 600), x + 31, y + 21.0F, HudPen.LEFT, MUTED);
             float bw = WRIST_W - 34;
             pen.rect(x + 31, y + TIMER_H - 4, bw, 1, 0x26FFFFFF);
             pen.rect(x + 31, y + TIMER_H - 4, bw * progress, 1, WHEAT);
@@ -349,7 +349,7 @@ public final class FieldHud {
         chamfer(pen, x, y, WRIST_W, NOTE_H, 0, 3, 0, 0, edge);
         float lamp = hidden ? 0.75F + 0.25F * Math.abs(Mth.sin(now / 600.0F)) : 0.35F;
         pen.rect(x + 4, y + 5.5F, 4, 4, alpha(edge, lamp));
-        String text = hidden ? "مختفي · أي حركة تكشفك" : "Shift واثبت " + seconds + " ثواني عشان تختفي";
+        String text = hidden ? "مختفي · أي حركة تكشفك" : "Shift أو انبطح واثبت " + seconds + " ثواني عشان تختفي";
         pen.text(pen.kufi(text, 5.0F, 600), x + 12, y + 10.0F, HudPen.LEFT, hidden ? accent : MUTED);
     }
 

@@ -221,7 +221,7 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
 
     /** Whether page {@code target} (1-based) is sealed for want of rent, as far as this client knows. */
     private boolean sealed(int target) {
-        return target > 1 && menu.rentLeft() <= 0 && !com.barbwra.mlum.client.admin.ClientAdmin.op();
+        return target > 1 && menu.rentLeft() <= 0;
     }
 
     /** Turns the vault to {@code target}: the rent dialog for a sealed page, else the shutter and the turn. */
@@ -374,7 +374,6 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
             ch.bank = menu.vaultBank();
             ch.canPay = menu.canPayRent();
             ch.level = menu.factionLevel();
-            ch.op = com.barbwra.mlum.client.admin.ClientAdmin.op();
             ch.page = menu.vaultPage() - 1;
             ch.pages = menu.vaultPages();
             ch.bodyId = menu.bodyId();

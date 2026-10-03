@@ -117,7 +117,9 @@ public final class FactionVaultContainer implements Container {
     @Override
     public boolean stillValid(Player player) {
         return data.byId(faction.id()) == faction
-                && (admin || FactionVaultAccess.mayView(faction, page, player.getUUID()));
+                && (admin || FactionVaultAccess.mayView(faction, page, player.getUUID()))
+                // a rented page shuts the moment its rent runs out
+                && (page <= 1 || faction.vault().rentActive(System.currentTimeMillis()));
     }
 
     @Override

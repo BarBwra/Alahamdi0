@@ -81,7 +81,7 @@ public final class Ghillie {
      */
     public static Settle step(Player player, Settle current, long now) {
         if (!MlumConfig.camouflage() || player.isSpectator() || suitOf(player) == null
-                || !player.isCrouching() || (MlumConfig.camouflageNeedsCover() && !inCover(player))) {
+                || !low(player) || (MlumConfig.camouflageNeedsCover() && !inCover(player))) {
             return null;
         }
         if (current != null) {
@@ -92,6 +92,15 @@ public final class Ghillie {
             }
         }
         return new Settle(player.getX(), player.getZ(), now);
+    }
+
+    /**
+     * Crouched, or lying flat: TACZ's crawl forces the swimming pose on dry land, and going from a
+     * crouch down to a crawl (or back) must not show the wearer.
+     */
+    public static boolean low(Player player) {
+        return player.isCrouching()
+                || (player.getPose() == net.minecraft.world.entity.Pose.SWIMMING && !player.isInWater());
     }
 
     /** 0..1 of the way to hidden. */
@@ -152,7 +161,7 @@ public final class Ghillie {
         if (suit == Suit.SNOW) {
             return matches(suit, under);
         }
-        return player.isCrouching() && (under.is(Blocks.GRASS_BLOCK) || under.is(Blocks.MOSS_BLOCK) || matches(suit, under));
+        return low(player) && (under.is(Blocks.GRASS_BLOCK) || under.is(Blocks.MOSS_BLOCK) || matches(suit, under));
     }
 
     private static boolean matches(Suit suit, BlockState state) {

@@ -73,7 +73,7 @@ public final class GhillieClient {
     }
 
     /** Past this many blocks a hidden player leaves no trace at all. */
-    private static final double SHIMMER_RANGE = 9.0D;
+    private static final double SHIMMER_RANGE = 6.0D;
 
     private static void shimmer(RenderPlayerEvent.Pre event, AbstractClientPlayer p) {
         LocalPlayer me = Minecraft.getInstance().player;
@@ -84,7 +84,7 @@ public final class GhillieClient {
         float alpha;
         if (p == me) {
             // yourself in third person: always the full shimmer, so you can see what others see
-            alpha = 0.2F;
+            alpha = 0.07F;
         } else {
             Vec3 eye = me.getEyePosition(pt);
             Vec3 centre = p.getPosition(pt).add(0.0D, p.getBbHeight() * 0.5D, 0.0D);
@@ -93,10 +93,10 @@ public final class GhillieClient {
                 return;
             }
             double dot = me.getViewVector(pt).dot(centre.subtract(eye).normalize());
-            // a glance (25 degrees off) gets a quarter of it; looking right at them, all of it
-            float focus = Mth.clamp((float) ((dot - 0.9D) / 0.09D), 0.0F, 1.0F);
+            // a glance gets almost nothing; only a stare straight at the spot shows the ripple
+            float focus = Mth.clamp((float) ((dot - 0.95D) / 0.045D), 0.0F, 1.0F);
             float near = 1.0F - (float) (distance / SHIMMER_RANGE);
-            alpha = near * near * (0.25F + 0.75F * focus) * 0.2F;
+            alpha = near * near * (0.08F + 0.92F * focus) * 0.07F;
         }
         if (alpha < 0.008F) {
             return;

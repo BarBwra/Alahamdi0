@@ -70,8 +70,6 @@ public final class InvView {
         public int bank;
         public boolean canPay;
         public int level;
-        /** The viewer is an operator, whom unpaid pages do not stop. */
-        public boolean op;
         public int page;
         public int pages = 1;
         /**

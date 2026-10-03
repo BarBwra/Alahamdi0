@@ -140,9 +140,8 @@ public final class FactionVaultAccess {
             tell(notify, "هذه الصفحة مغلقة - مستوى المنظمة " + level);
             return null;
         }
-        // every page past the first is rented; only a real operator walks past an unpaid one
-        if (page > 1 && !faction.vault().rentActive(System.currentTimeMillis())
-                && !com.barbwra.mlum.admin.Staff.isOp(viewer)) {
+        // every page past the first is rented, for everyone - operators included
+        if (page > 1 && !faction.vault().rentActive(System.currentTimeMillis())) {
             tell(notify, "الصفحة مقفلة - إيجار الخزنة منتهي");
             return null;
         }

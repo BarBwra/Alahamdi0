@@ -242,6 +242,45 @@ public class DealerScreen extends Screen {
     private record Card(ClientDealer.Listing listing, float x, float y, float w, float h) {
     }
 
+    /** A section tab: where it sits, and the vehicle its little picture shows. */
+    private record Tab(ClientDealer.Category category, float x, float w, String entity) {
+    }
+
+    private static final float TAB_THUMB_W = 30.0F;
+    private static final float TAB_THUMB_H = 22.0F;
+    private final List<Tab> tabs = new ArrayList<>();
+    private float tabsLeft;
+
+    /** Lays the section tabs out, centred; each gets the first vehicle in it as its picture. */
+    private void layoutTabs(HudPen pen) {
+        tabs.clear();
+        List<ClientDealer.Category> cats = new ArrayList<>();
+        cats.add(new ClientDealer.Category(0, "الكل"));
+        cats.addAll(ClientDealer.CATEGORIES);
+        float gap = 10.0F;
+        float total = 0;
+        float[] widths = new float[cats.size()];
+        for (int i = 0; i < cats.size(); i++) {
+            widths[i] = pen.width(pen.kufi(cats.get(i).name(), 6.0F, 700)) + TAB_THUMB_W + 26.0F;
+            total += widths[i] + gap;
+        }
+        float x = width / 2.0F + total / 2.0F;
+        for (int i = 0; i < cats.size(); i++) {
+            ClientDealer.Category c = cats.get(i);
+            x -= widths[i];
+            String entity = null;
+            for (ClientDealer.Listing l : ClientDealer.LISTINGS) {
+                if (c.id() == 0 || l.category() == c.id()) {
+                    entity = l.entity();
+                    break;
+                }
+            }
+            tabs.add(new Tab(c, x, widths[i], entity));
+            x -= gap;
+        }
+        tabsLeft = x;
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (seen != ClientDealer.version) {
@@ -259,7 +298,7 @@ public class DealerScreen extends Screen {
         zones.clear();
         zoneIds.clear();
         float pad = 8.0F;
-        float topH = 24.0F;
+        float topH = 30.0F;
         float carH = 72.0F;
         carY = height - pad - carH;
         float stageY0 = topH + 6.0F;
@@ -282,6 +321,16 @@ public class DealerScreen extends Screen {
             for (Card c : cards) {
                 cardBack(kit.pen, c, mouseX, mouseY);
             }
+            layoutTabs(kit.pen);
+            kit.pen.vgrad(0, 0, width, topH, 0xF0040604, 0xC0040604);
+            kit.pen.rect(0, topH, width, 0.5F, ScreenKit.LINE);
+            for (Tab t : tabs) {
+                float tx = t.x() + t.w() - TAB_THUMB_W - 3;
+                boolean on = t.category().id() == filter;
+                kit.pen.vgrad(tx, 4, TAB_THUMB_W, TAB_THUMB_H, on ? 0xFF2A2716 : 0xFF171A14, 0xFF0C0E0A);
+                ellipse(kit.pen, tx + TAB_THUMB_W / 2, 4 + TAB_THUMB_H - 4, TAB_THUMB_W * 0.36F, 1.6F,
+                        ScreenKit.alpha(0xFFF4E8CC, on ? 0.12F : 0.06F));
+            }
         } finally {
             kit.end();
         }
@@ -296,8 +345,18 @@ public class DealerScreen extends Screen {
                 shownYaw, 14.0F);
         for (Card c : cards) {
             g.enableScissor((int) c.x() + 1, (int) c.y() + 1, (int) (c.x() + c.w()) - 1, (int) (c.y() + 44));
-            EntityPreview.showroom(g, c.listing().entity(), c.x() + c.w() / 2.0F, c.y() + 38.0F, c.w() * 0.62F,
-                    c.listing().id() == selected ? shownYaw : 215.0F, 16.0F);
+            // pulled back so the whole vehicle fits the card, not just its middle
+            EntityPreview.showroom(g, c.listing().entity(), c.x() + c.w() / 2.0F, c.y() + 37.0F, c.w() * 0.40F,
+                    c.listing().id() == selected ? shownYaw : 215.0F, 18.0F);
+            g.disableScissor();
+        }
+        for (Tab t : tabs) {
+            if (t.entity() == null) {
+                continue;
+            }
+            float tx = t.x() + t.w() - TAB_THUMB_W - 3;
+            g.enableScissor((int) tx, 4, (int) (tx + TAB_THUMB_W), (int) (4 + TAB_THUMB_H));
+            EntityPreview.showroom(g, t.entity(), tx + TAB_THUMB_W / 2, 4 + TAB_THUMB_H - 4, TAB_THUMB_W * 0.62F, 215.0F, 20.0F);
             g.disableScissor();
         }
 
@@ -398,69 +457,55 @@ public class DealerScreen extends Screen {
     /* ================================================================== the top bar */
 
     private void topBar(HudPen pen, float pad, float h, int mx, int my) {
-        pen.vgrad(0, 0, width, h, 0xF0040604, 0xC0040604);
-        pen.rect(0, h, width, 0.5F, ScreenKit.LINE);
         Shaped mark = pen.pixel("MLUM MOTORS", 11.0F, 700);
-        pen.glow(mark, pad + 2, 16.0F, HudPen.LEFT, 2.0F, ScreenKit.alpha(ScreenKit.AMBER, 0.35F));
-        pen.text(mark, pad + 2, 16.0F, HudPen.LEFT, ScreenKit.BONE);
+        pen.glow(mark, pad + 2, 19.0F, HudPen.LEFT, 2.0F, ScreenKit.alpha(ScreenKit.AMBER, 0.35F));
+        pen.text(mark, pad + 2, 19.0F, HudPen.LEFT, ScreenKit.BONE);
 
-        // the sections, centred: name, count, an underline on the one shown
-        List<ClientDealer.Category> cats = new ArrayList<>();
-        cats.add(new ClientDealer.Category(0, "الكل"));
-        cats.addAll(ClientDealer.CATEGORIES);
-        float gap = 12.0F;
-        float total = 0;
-        float[] widths = new float[cats.size()];
-        for (int i = 0; i < cats.size(); i++) {
-            widths[i] = pen.width(pen.kufi(cats.get(i).name(), 6.0F, 700)) + 18.0F;
-            total += widths[i] + gap;
-        }
-        if (editing) {
-            total += 18.0F;
-        }
-        float x = width / 2.0F + total / 2.0F;
-        for (int i = 0; i < cats.size(); i++) {
-            ClientDealer.Category c = cats.get(i);
-            float w = widths[i];
-            x -= w;
+        // the sections: picture, name, count; an underline on the one shown
+        for (Tab t : tabs) {
+            ClientDealer.Category c = t.category();
+            float x = t.x();
+            float w = t.w();
             boolean on = c.id() == filter;
             boolean hot = mx >= x && mx < x + w && my >= 0 && my < h;
             int color = on ? ScreenKit.AMBER : hot ? ScreenKit.BONE : ScreenKit.MUTED;
-            pen.text(pen.kufi(c.name(), 6.0F, 700), x + w - 4, 15.0F, HudPen.RIGHT, color);
+            float tx = x + w - TAB_THUMB_W - 3;
+            outline(pen, tx, 4, TAB_THUMB_W, TAB_THUMB_H, on ? ScreenKit.AMBER : hot ? ScreenKit.AMBER_DIM : ScreenKit.LINE);
+            pen.text(pen.kufi(c.name(), 6.0F, 700), tx - 4, 18.0F, HudPen.RIGHT, color);
             String n = String.valueOf(countIn(c.id()));
             Shaped ns = pen.pixel(n, 6.0F, 700);
             float nw = pen.width(ns) + 4;
-            pen.rect(x + 1, 9.0F, nw, 8.0F, on ? ScreenKit.alpha(ScreenKit.AMBER, 0.2F) : 0x14FFFFFF);
-            pen.text(ns, x + 1 + nw / 2, 15.5F, HudPen.CENTER, color);
+            pen.rect(x + 1, 12.0F, nw, 8.0F, on ? ScreenKit.alpha(ScreenKit.AMBER, 0.2F) : 0x14FFFFFF);
+            pen.text(ns, x + 1 + nw / 2, 18.5F, HudPen.CENTER, color);
             if (on) {
                 pen.rect(x, h - 2, w, 2, ScreenKit.AMBER);
             }
             zone("cat:" + c.id(), x, 0, w, h);
-            x -= gap;
         }
+        float x = tabsLeft;
         if (editing) {
-            kit.button("add.cat", "+", x - 14, 7, 14, 11, ScreenKit.GHOST, mx, my);
+            kit.button("add.cat", "+", x - 14, 9, 14, 12, ScreenKit.GHOST, mx, my);
             if (filter != 0) {
-                kit.button("edit.cat", "تعديل القسم", x - 64, 7, 46, 11, ScreenKit.GHOST, mx, my);
+                kit.button("edit.cat", "تعديل القسم", x - 64, 9, 46, 12, ScreenKit.GHOST, mx, my);
             }
         }
 
         // the buyer: balance and level, right
         float right = width - pad;
         if (ClientDealer.edit) {
-            kit.button("edit", editing ? "خلّصت" : "تعديل", right - 34, 6, 34, 12, editing ? ScreenKit.FILLED : ScreenKit.GHOST, mx, my);
+            kit.button("edit", editing ? "خلّصت" : "تعديل", right - 34, 9, 34, 12, editing ? ScreenKit.FILLED : ScreenKit.GHOST, mx, my);
             right -= 40;
         }
         Shaped lv = pen.pixel(String.valueOf(ClientDealer.level), 8.0F, 700);
-        pen.text(lv, right, 16.0F, HudPen.RIGHT, ScreenKit.BONE);
+        pen.text(lv, right, 19.0F, HudPen.RIGHT, ScreenKit.BONE);
         Shaped lvl = pen.kufi("مستواك", 4.8F, 600);
-        pen.text(lvl, right - pen.width(lv) - 3, 15.5F, HudPen.RIGHT, ScreenKit.MUTED);
+        pen.text(lvl, right - pen.width(lv) - 3, 18.5F, HudPen.RIGHT, ScreenKit.MUTED);
         right -= pen.width(lv) + pen.width(lvl) + 12;
         Shaped bal = pen.pixel(money(ClientDealer.balance), 9.0F, 700);
         float bw = pen.width(bal) + 12;
-        pen.rect(right - bw, 5, bw, 14, 0x332B4A1F);
-        outline(pen, right - bw, 5, bw, 14, 0xFF3F6B2E);
-        pen.text(bal, right - bw / 2, 15.5F, HudPen.CENTER, CASH);
+        pen.rect(right - bw, 8, bw, 14, 0x332B4A1F);
+        outline(pen, right - bw, 8, bw, 14, 0xFF3F6B2E);
+        pen.text(bal, right - bw / 2, 18.5F, HudPen.CENTER, CASH);
     }
 
     /* ================================================================== the information column */

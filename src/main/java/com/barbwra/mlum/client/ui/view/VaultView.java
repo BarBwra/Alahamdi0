@@ -152,7 +152,7 @@ public final class VaultView {
         /* ---- page drawers ---- */
         Node tabs = row().align(Node.CENTER).justify(Node.CENTER).gap(8).pad(2, 26, 14, 26);
         for (int i = 0; i < Math.max(1, ch.pages); i++) {
-            tabs.add(drawer(i, i == ch.page, i > 0 && ch.rentLeft <= 0 && !ch.op, m));
+            tabs.add(drawer(i, i == ch.page, i > 0 && ch.rentLeft <= 0, m));
         }
         p.add(tabs);
 
@@ -167,7 +167,12 @@ public final class VaultView {
         for (int i = 0; i < ch.rows * 9; i++) {
             String key = "box:" + i;
             Item it = i < ch.slots.length ? ch.slots[i] : null;
-            g.add(Slots.slot(it, CELL, 38, key.equals(m.hover), InvView.stateOf(m, key), null).hit(key, i));
+            int state = InvView.stateOf(m, key);
+            // an empty cell under the cursor gets the same amber square the bag grid shows
+            if (state == Slots.IDLE && it == null && key.equals(m.hover)) {
+                state = Slots.OPEN;
+            }
+            g.add(Slots.slot(it, CELL, 38, key.equals(m.hover), state, null).hit(key, i));
         }
         interior.add(g);
         interior.under(VaultView::paintInterior);

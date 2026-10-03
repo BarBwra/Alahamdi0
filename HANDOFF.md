@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.14.0**, network protocol **17**.
+Last updated at **mlum 3.14.1**, network protocol **17**.
 
 ---
 
@@ -609,6 +609,13 @@ page turn - the menu reopening within 1.5 s of closing - only spins the dial (`u
   (`EntityPreview.showroom`), and other clients skip rendering anyone browsing (`browsing` ids).
   Packets `S2CDealer` / `C2SDealer`, protocol 16.
 
+### 3.14.1
+- Ghillie counts TACZ's crawl (forced swimming pose on land) as low, like a crouch
+  (`Ghillie.low`). Shimmer much fainter: 6 blocks, alpha up to 0.07, only a direct stare shows it.
+- Vault: empty cells light amber under the cursor (`Slots.OPEN`), rent has no operator bypass.
+- Showroom: card models pulled back to fit; each section tab carries a small live picture of its
+  first vehicle.
+
 ### 3.14.0 — vault screen and rent, showroom rework, ghillie by server list
 - Ghillie: hidden players are a server-sent id list (`S2CGhillie`), not the invisible flag - other
   invisibility (another mod's suit, potions) no longer skips the wait. Your own shimmer shows in F5.
@@ -618,8 +625,8 @@ page turn - the menu reopening within 1.5 s of closing - only spins the dial (`u
   shutter (`closeShutter`/`openShutter`) instead of the static. Rent: pages after the first cost
   `FactionLevel.RENT_PER_PAGE_DAY` (500) each per real day from the faction bank, plans
   `RENT_DAYS` 1/7/20/30 at `RENT_OFF` 0/5/10/15%; `FactionVault.rentUntil`, enforced in
-  `FactionVaultAccess.resolve` for everyone but real operators; paid with `C2SVaultRent` by
-  leader/deputy. The vault's open buffer now carries rent left, bank, may-pay and level.
+  `FactionVaultAccess.resolve` and `FactionVaultContainer.stillValid` for everyone, operators
+  included (3.14.1); paid with `C2SVaultRent` by leader/deputy. The vault's open buffer now carries rent left, bank, may-pay and level.
 - Dealership screen rebuilt: section tabs with counts along the top, the vehicle on the stage, an
   information column, a carousel of cards each with its own live model and ribbons (new this
   week via `Listing.added`, owned, level-locked), a purchase dialog and a success screen
