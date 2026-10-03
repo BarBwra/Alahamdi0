@@ -63,6 +63,8 @@ public final class InvView {
         public int rows = 3;
         public Item[] slots = new Item[27];
         public boolean paged;
+        /** A faction vault: the faction's name, shown on the door. */
+        public String owner = "";
         public int page;
         public int pages = 1;
         /**
@@ -153,7 +155,10 @@ public final class InvView {
         Node centre = centre(m);
         centre.alignSelf = CENTER;
         Node left = col().gap(14);
-        if (m.chest != null && m.chest.bodyId >= 0) {
+        if (m.chest != null && m.chest.paged) {
+            // a faction vault takes the whole column: the door is the point of it
+            left.add(VaultView.panel(m));
+        } else if (m.chest != null && m.chest.bodyId >= 0) {
             // looting someone: them, with their gear on, over what they carry - no details panel
             left.add(bodyPanel(m));
             left.add(chestPanel(m));

@@ -122,6 +122,29 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
         super.init();
         UiBoot.ensure();
         UiState.releaseFx();
+        if (!shown) {
+            shown = true;
+            if (menu.isVault()) {
+                openVault();
+            }
+        }
+    }
+
+    /** init() runs again on every resize; the vault's door only opens once per screen. */
+    private boolean shown;
+    /** When the last vault screen went away, so a page turn can be told from a fresh opening. */
+    private static long vaultGoneAt;
+
+    /**
+     * A fresh opening unlocks the door; a page turn (the menu reopens within a moment of closing)
+     * only spins the dial, since the vault is already open.
+     */
+    private void openVault() {
+        long now = UiState.now();
+        boolean turn = now - vaultGoneAt < 1500L;
+        com.barbwra.mlum.client.ui.view.VaultView.dialAt = now;
+        com.barbwra.mlum.client.ui.view.VaultView.doorAt = turn ? -1L : now;
+        UiSounds.vault(!turn);
     }
 
     /* ================================================================== UiPage */
@@ -306,6 +329,7 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
                 ch.slots[i] = McItems.of(slotStack(menu.containerStart + i));
             }
             ch.paged = menu.isVault();
+            ch.owner = menu.isVault() ? UiText.logical(this.title.getString()) : "";
             ch.page = menu.vaultPage() - 1;
             ch.pages = menu.vaultPages();
             ch.bodyId = menu.bodyId();
@@ -655,8 +679,8 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
             sendButton(MlumMenu.BTN_LOOT_CHEST);
             return true;
         }
-        if (id.equals("pg:-1") || id.equals("pg:1")) {
-            int target = menu.vaultPage() + (id.equals("pg:1") ? 1 : -1);
+        if (id.equals("pg:-1") || id.equals("pg:1") || (id.startsWith("vpg:") && hit.data instanceof Integer)) {
+            int target = id.startsWith("vpg:") ? (Integer) hit.data + 1 : menu.vaultPage() + (id.equals("pg:1") ? 1 : -1);
             if (menu.isVault() && target >= 1 && target <= menu.vaultPages() && held == null && !handsFull()) {
                 UiState.startFx(true, true);
                 ModNetwork.CHANNEL.sendToServer(new C2SVaultPage(target));
@@ -1192,6 +1216,9 @@ public class BagScreen extends AbstractContainerScreen<MlumMenu> implements UiPa
 
     @Override
     public void removed() {
+        if (menu.isVault()) {
+            vaultGoneAt = UiState.now();
+        }
         cancelHold();
         super.removed();
     }

@@ -44,6 +44,11 @@ public final class UiSounds {
         play(ModSounds.UI_CLICK, 0.8F, 0.95F + (float) Math.random() * 0.1F);
     }
 
+    /** The vault: the full unlock on opening, or just the dial and a drawer on a page turn. */
+    public static void vault(boolean unlock) {
+        play(unlock ? ModSounds.UI_VAULT_OPEN : ModSounds.UI_VAULT_PAGE, 0.9F, 1.0F);
+    }
+
     public static void open() {
         play(ModSounds.UI_OPEN, 0.6F, 1.0F);
     }

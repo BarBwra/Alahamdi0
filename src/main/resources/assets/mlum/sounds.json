@@ -106,5 +106,21 @@
         "preload": true
       }
     ]
+  },
+  "ui.vault_open": {
+    "sounds": [
+      {
+        "name": "mlum:ui/vault_open",
+        "preload": true
+      }
+    ]
+  },
+  "ui.vault_page": {
+    "sounds": [
+      {
+        "name": "mlum:ui/vault_page",
+        "preload": true
+      }
+    ]
   }
 }

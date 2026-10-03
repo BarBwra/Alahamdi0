@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.12.1**, network protocol **15**.
+Last updated at **mlum 3.12.2**, network protocol **15**.
 
 ---
 
@@ -584,6 +584,14 @@ the side panel were built and then removed at the user's request - do not bring 
 - **Health feel** (`HealthFeel`): under 35% health a red vignette (vanilla texture, darkening blend),
   heartbeat (`feel.heartbeat`) and world sounds muffled up to 60% (`PlaySoundEvent` wrapper).
 - Admin panel key moved O→K, off TACZ's interact key.
+
+### 3.12.2 — the faction vault looks like a vault (`client/ui/view/VaultView.java`)
+A vault page no longer uses the chest panel: it takes the whole left column (no details panel) as
+a steel door - brass trim, rivets, hinges, the faction's name, a combination dial, numbered page
+drawers (`vpg:N`, jump straight to a page) and a recessed interior with bolts either side. The
+cells are still the `box:` slot nodes, so interaction is unchanged. A fresh opening runs the
+unlock (dial spins, bolts draw back, two inner leaves slide apart, ~1.25 s, `ui.vault_open`); a
+page turn - the menu reopening within 1.5 s of closing - only spins the dial (`ui.vault_page`).
 
 ## 12. Open items
 
