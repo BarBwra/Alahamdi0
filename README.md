@@ -1,6 +1,6 @@
 # MlumInventory — Minecraft 1.20.1 / Forge 47.4.10
 
-**v3.16.0** (network protocol 19) — see "What is new" below, and `HANDOFF.md` §5.4 and §11b
+**v3.17.0** (network protocol 19) — see "What is new" below, and `HANDOFF.md` §5.4 and §11b
 for developers.
 
 ---
@@ -17,7 +17,7 @@ for developers.
 | **Sounds** | hover, click, open and close sounds in every menu |
 | **Dealership** | `/mlum dealer open <player>` (command block at the showroom). The vehicle turns on a lit stage only the buyer sees; price, level and limited/permanent shown plainly; paid from the bag balance. OPs add sections and vehicles in the same screen |
 | **Vehicles in a fight** | owner in PvP: no summon, no store; a vehicle that took damage cannot be stored for a while; summoned vehicles appear beside you, never on you |
-| **Drivers** | whoever drives a Superb Warfare vehicle cannot shoot TACZ guns or use any hand weapon; the vehicle's own weapons still work |
+| **Inside a vehicle** | in any seat the hotbar is off - no guns, no items, no hitting; the vehicle's own weapons still work. The HUD becomes a speedometer (bottom middle) and the vehicle's health and fuel (bottom right) |
 | **Bullets vs vehicles** | TACZ rifles, pistols, shotguns and snipers now damage Superb Warfare vehicles (`bulletVehicleDamage`) |
 | **Faction vault** | its own screen, big side buttons and A/D to turn pages, rent of 500 a day per page after the first from the faction bank (longer plans cheaper) |
 | **Ghillie** | a 5 s countdown above the wrist; any movement restarts it; hidden wearers are a faint ripple up close |

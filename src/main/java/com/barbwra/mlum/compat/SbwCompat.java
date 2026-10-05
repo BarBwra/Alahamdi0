@@ -64,7 +64,8 @@ public final class SbwCompat {
             java.lang.reflect.Method set = find(type, "setHealth", float.class);
             // the vehicle's own damage routine: hit marker for the shooter, last attacker, effects
             java.lang.reflect.Method hurt = find(type, "onHurt", float.class, Entity.class, boolean.class);
-            return new java.lang.reflect.Method[]{get, set, hurt};
+            java.lang.reflect.Method max = find(type, "getMaxHealth");
+            return new java.lang.reflect.Method[]{get, set, hurt, max};
         });
         return found;
     }
@@ -93,6 +94,42 @@ public final class SbwCompat {
         try {
             return ((Number) get.invoke(entity)).floatValue();
         } catch (ReflectiveOperationException | RuntimeException e) {
+            return -1.0F;
+        }
+    }
+
+    /** A vehicle's full health, or -1 when it cannot be read. */
+    public static float maxHealth(@Nullable Entity entity) {
+        if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+            return living.getMaxHealth();
+        }
+        if (!isVehicle(entity)) {
+            return -1.0F;
+        }
+        java.lang.reflect.Method max = healthMethods(entity)[3];
+        if (max == null) {
+            return -1.0F;
+        }
+        try {
+            return ((Number) max.invoke(entity)).floatValue();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return -1.0F;
+        }
+    }
+
+    /** How full the tank is, 0..1, or -1 for a vehicle with no tank. */
+    public static float energyFraction(@Nullable Entity entity) {
+        java.lang.reflect.Method[] m = entity == null ? null : energyMethods(entity);
+        if (m == null) {
+            return -1.0F;
+        }
+        try {
+            if (!(Boolean) m[3].invoke(entity)) {
+                return -1.0F;
+            }
+            int max = (Integer) m[2].invoke(entity);
+            return max <= 0 ? -1.0F : Math.max(0.0F, Math.min(1.0F, (Integer) m[0].invoke(entity) / (float) max));
+        } catch (Throwable refused) {
             return -1.0F;
         }
     }

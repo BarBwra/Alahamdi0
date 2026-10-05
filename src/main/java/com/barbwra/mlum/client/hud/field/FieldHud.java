@@ -128,17 +128,18 @@ public final class FieldHud {
         try {
             pen.zoom(width / 2.0F, 0.0F, k);
             compass(pen, player, partialTick, width, accent);
-            if (survival) {
+            // inside a vehicle the vehicle's own panels take over (VehicleHud)
+            if (survival && !riding) {
                 pen.zoom(MARGIN, height - MARGIN, k);
                 wrist(pen, player, MARGIN + shake, height - MARGIN - WRIST_H, hp, accent, now);
             }
-            if (com.barbwra.mlum.camo.GhillieClient.wearing() && !down) {
+            if (com.barbwra.mlum.camo.GhillieClient.wearing() && !down && !riding) {
                 // above the wrist device; with no wrist (creative) it takes the wrist's corner
                 pen.zoom(MARGIN, height - MARGIN, k);
                 float base = survival ? height - MARGIN - WRIST_H - 4 : height - MARGIN;
                 camoNotice(pen, MARGIN, base - noteHeight(), accent, now);
             }
-            if (!down) {
+            if (!down && !riding) {
                 // flat on your back the belt and the gun are out of reach; only the wrist stays.
                 // On a narrow screen the belt would run into the two panels, so it sits above them
                 float half = ((CELL + GAP) * 9 / 2.0F + 20.0F) * k;

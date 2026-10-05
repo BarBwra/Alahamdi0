@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.16.0**, network protocol **19**.
+Last updated at **mlum 3.17.0**, network protocol **19**.
 
 ---
 
@@ -607,12 +607,17 @@ page turn - the menu reopening within 1.5 s of closing - only spins the dial (`u
   (`EntityPreview.showroom`), and other clients skip rendering anyone browsing (`browsing` ids).
   Packets `S2CDealer` / `C2SDealer`, protocol 16.
 
-### 3.16.2 — the driver cannot fight
-Whoever drives an SBW vehicle (`SbwCompat.isDriving`) cannot hit anything (`AttackEntityEvent`),
-use bows/crossbows/tridents/throwables (`RightClickItem`), or shoot/melee with TACZ
-(`compat/TaczDriverRules`, both sides). `DriverRules.onLivingAttack` cancels any remaining damage a
-driver deals by hand or with a non-SBW projectile; SBW's own projectiles (the vehicle's weapons)
-still hit. Other seats are unaffected.
+### 3.17.0 — inside a vehicle (`vehicle/DriverRules`, `client/hud/field/VehicleHud`)
+- Every seat of an SBW vehicle (`SbwCompat.isRiding`), not only the driver's: no item use
+  (`RightClickItem`), no use on blocks, no breaking, no attacking, no TACZ shoot/melee/reload
+  (`compat/TaczDriverRules`); `onLivingAttack` cancels any hand or non-SBW-projectile damage a rider
+  still deals. SBW's own projectiles (vehicle weapons) still hit. Client: the use/attack keys are
+  cancelled at LOWEST (after SBW's own handlers) and first-person hands are not drawn.
+- HUD: the wrist device, ghillie notice, belt and weapon slab are hidden while riding, and vanilla
+  hearts/armour/food/air/hotbar/item name are cancelled. `VehicleHud` draws a speedometer (km/h
+  from the vehicle's per-tick movement, scale 120/240/480) bottom-middle and a panel bottom-right:
+  vehicle name, driver/passenger, health in ten segments (`SbwCompat.health`/`maxHealth`, white
+  flash and shake on a hit), fuel when it has a tank (`SbwCompat.energyFraction`).
 
 ### 3.16.0 — vehicles in a fight, bullets on vehicles, diplomacy and screens removed
 - Faction diplomacy (alliances, wars, bounties, built in 3.15.0) was taken out entirely at the

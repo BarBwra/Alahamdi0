@@ -7,13 +7,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.item.EggItem;
-import net.minecraft.world.item.EnderpearlItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ProjectileWeaponItem;
-import net.minecraft.world.item.SnowballItem;
-import net.minecraft.world.item.ThrowablePotionItem;
-import net.minecraft.world.item.TridentItem;
 import net.minecraftforge.event.entity.living.LivingAttackEvent;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
@@ -26,12 +19,13 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Whoever drives a Superb Warfare vehicle has their hands on the wheel: no hitting, no bows,
- * crossbows, tridents or anything thrown, and no TACZ gun (that half is {@code TaczDriverRules}).
+ * Inside a Superb Warfare vehicle the hotbar is out of reach, in every seat: nothing in the hands
+ * can be used, nothing can be hit, no block broken or placed, and no TACZ gun fired, reloaded or
+ * swung ({@code TaczDriverRules}). An armoured hull is not a firing slit.
  *
- * <p>Only hand weapons are stopped. The vehicle's own guns and cannons fire projectiles from Superb
- * Warfare itself, and those still hurt whatever they hit - a tank driver still drives a tank.
- * Passengers in the other seats are not affected.</p>
+ * <p>Only the hands are stopped. The vehicle's own guns and cannons fire Superb Warfare's own
+ * projectiles through its own keys, and those still hurt whatever they hit. The client side of
+ * this (no swing, no hands drawn) is in {@code client.hud.field.VehicleHud}.</p>
  */
 @Mod.EventBusSubscriber(modid = MlumInventory.MODID)
 public final class DriverRules {
@@ -42,8 +36,9 @@ public final class DriverRules {
     private static final String SBW = "com.atsuishio.superbwarfare";
     private static final Map<UUID, Long> TOLD = new HashMap<>();
 
-    public static boolean driving(Player player) {
-        return SbwCompat.isDriving(player);
+    /** In any seat of a Superb Warfare vehicle. */
+    public static boolean restricted(Player player) {
+        return SbwCompat.isRiding(player);
     }
 
     /** Says why, at most every two seconds, so holding the button is not a chat flood. */
@@ -55,41 +50,49 @@ public final class DriverRules {
         Long last = TOLD.get(sp.getUUID());
         if (last == null || now - last > 2000L) {
             TOLD.put(sp.getUUID(), now);
-            Feedback.bad(sp, "ما تقدر تستخدم سلاح وأنت تسوق");
+            Feedback.bad(sp, "ما تقدر تستخدم اللي في يدك وأنت داخل المركبة");
         }
     }
 
-    /** Hitting anything - a mob, a player, another vehicle - from the driver's seat. */
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onAttackEntity(AttackEntityEvent event) {
-        if (driving(event.getEntity())) {
+        if (restricted(event.getEntity())) {
             event.setCanceled(true);
             tell(event.getEntity());
         }
     }
 
-    /** Bows, crossbows, tridents, potions, pearls and anything else thrown. */
+    /** Anything in the hand: guns, bows, food, potions, pearls, tools. */
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onUseItem(PlayerInteractEvent.RightClickItem event) {
-        if (!driving(event.getEntity())) {
-            return;
-        }
-        Item item = event.getItemStack().getItem();
-        if (item instanceof ProjectileWeaponItem || item instanceof TridentItem || item instanceof ThrowablePotionItem
-                || item instanceof SnowballItem || item instanceof EggItem || item instanceof EnderpearlItem) {
+        if (restricted(event.getEntity())) {
             event.setCanceled(true);
             tell(event.getEntity());
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onUseOnBlock(PlayerInteractEvent.RightClickBlock event) {
+        if (restricted(event.getEntity())) {
+            event.setCanceled(true);
+        }
+    }
+
+    @SubscribeEvent(priority = EventPriority.HIGH)
+    public static void onBreak(PlayerInteractEvent.LeftClickBlock event) {
+        if (restricted(event.getEntity())) {
+            event.setCanceled(true);
         }
     }
 
     /**
-     * The backstop: any damage a driver deals with their own hands or a hand weapon's projectile is
-     * cancelled, whatever slipped past the two above. Projectiles of Superb Warfare's own - the
-     * vehicle's weapons - are let through.
+     * The backstop: any damage a rider deals with their own hands or a hand weapon's projectile is
+     * cancelled, whatever slipped past the rest. Superb Warfare's own projectiles - the vehicle's
+     * weapons - are let through.
      */
     @SubscribeEvent(priority = EventPriority.HIGH)
     public static void onLivingAttack(LivingAttackEvent event) {
-        if (!(event.getSource().getEntity() instanceof Player attacker) || !driving(attacker)) {
+        if (!(event.getSource().getEntity() instanceof Player attacker) || !restricted(attacker)) {
             return;
         }
         Entity direct = event.getSource().getDirectEntity();

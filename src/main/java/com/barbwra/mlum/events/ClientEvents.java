@@ -218,6 +218,20 @@ public final class ClientEvents {
          * The field HUD redraws all of these itself: hearts, armour and hunger live on the wrist
          * device, the hotbar is the belt, and the held item's name is drawn over the belt.
          */
+        // inside a Superb Warfare vehicle the vehicle HUD replaces the player's (VehicleHud)
+        if (com.barbwra.mlum.client.hud.field.VehicleHud.active()) {
+            var overlay = event.getOverlay();
+            if (overlay == VanillaGuiOverlay.PLAYER_HEALTH.type()
+                    || overlay == VanillaGuiOverlay.ARMOR_LEVEL.type()
+                    || overlay == VanillaGuiOverlay.FOOD_LEVEL.type()
+                    || overlay == VanillaGuiOverlay.AIR_LEVEL.type()
+                    || overlay == VanillaGuiOverlay.HOTBAR.type()
+                    || overlay == VanillaGuiOverlay.ITEM_NAME.type()) {
+                event.setCanceled(true);
+                return;
+            }
+        }
+
         if (MlumConfig.fieldHud()) {
             var overlay = event.getOverlay();
             if (overlay == VanillaGuiOverlay.PLAYER_HEALTH.type()
