@@ -83,9 +83,9 @@ public final class ModNetwork {
      * <p>16 -&gt; 17: {@code S2CGhillie}, who the ghillie suits are hiding; {@code C2SVaultRent}, and
      * the vault's open buffer carries the rent, the bank and the level.</p>
      *
-     * <p>17 -&gt; 18: faction diplomacy - {@code S2CDiplomacy} and {@code C2SDiplomacy}.</p>
+     * <p>17 -&gt; 18: faction diplomacy, added; 18 -&gt; 19: taken out again.</p>
      */
-    private static final String PROTOCOL = "18";
+    private static final String PROTOCOL = "19";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             MlumInventory.id("main"),
@@ -317,16 +317,6 @@ public final class ModNetwork {
                 .encoder(C2SVaultRent::encode)
                 .decoder(C2SVaultRent::decode)
                 .consumerMainThread(C2SVaultRent::handle)
-                .add();
-        CHANNEL.messageBuilder(S2CDiplomacy.class, nextId++, NetworkDirection.PLAY_TO_CLIENT)
-                .encoder(S2CDiplomacy::encode)
-                .decoder(S2CDiplomacy::decode)
-                .consumerMainThread(S2CDiplomacy::handle)
-                .add();
-        CHANNEL.messageBuilder(C2SDiplomacy.class, nextId++, NetworkDirection.PLAY_TO_SERVER)
-                .encoder(C2SDiplomacy::encode)
-                .decoder(C2SDiplomacy::decode)
-                .consumerMainThread(C2SDiplomacy::handle)
                 .add();
 
     }

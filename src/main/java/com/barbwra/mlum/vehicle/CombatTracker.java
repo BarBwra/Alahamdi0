@@ -67,8 +67,39 @@ public final class CombatTracker {
         return left;
     }
 
+    /* ---- vehicles: one that has taken damage cannot be put away for a while ---- */
+
+    /** Vehicle UUID -> the game tick at which its tag expires. */
+    private static final Map<UUID, Long> VEHICLES = new ConcurrentHashMap<>();
+
+    public static void tagVehicle(net.minecraft.world.entity.Entity vehicle) {
+        int seconds = MlumConfig.combatLockSeconds();
+        if (vehicle == null || vehicle.level().isClientSide || seconds <= 0) {
+            return;
+        }
+        VEHICLES.merge(vehicle.getUUID(), vehicle.level().getGameTime() + seconds * 20L, Math::max);
+    }
+
+    /** Ticks until this vehicle may be stored; zero when free. */
+    public static long vehicleRemaining(net.minecraft.world.entity.Entity vehicle) {
+        if (vehicle == null) {
+            return 0L;
+        }
+        Long until = VEHICLES.get(vehicle.getUUID());
+        if (until == null) {
+            return 0L;
+        }
+        long left = until - vehicle.level().getGameTime();
+        if (left <= 0L) {
+            VEHICLES.remove(vehicle.getUUID());
+            return 0L;
+        }
+        return left;
+    }
+
     /** Called when the server stops, so a restart never inherits stale ticks. */
     public static void reset() {
         LOCKED.clear();
+        VEHICLES.clear();
     }
 }

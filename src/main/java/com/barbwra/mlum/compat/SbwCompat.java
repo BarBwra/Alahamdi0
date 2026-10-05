@@ -54,6 +54,76 @@ public final class SbwCompat {
         return false;
     }
 
+    /* ---- health, by reflection like the fuel below ---- */
+
+    private static final java.util.Map<Class<?>, java.lang.reflect.Method[]> HEALTH = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private static java.lang.reflect.Method[] healthMethods(Entity entity) {
+        java.lang.reflect.Method[] found = HEALTH.computeIfAbsent(entity.getClass(), type -> {
+            java.lang.reflect.Method get = find(type, "getHealth");
+            java.lang.reflect.Method set = find(type, "setHealth", float.class);
+            // the vehicle's own damage routine: hit marker for the shooter, last attacker, effects
+            java.lang.reflect.Method hurt = find(type, "onHurt", float.class, Entity.class, boolean.class);
+            return new java.lang.reflect.Method[]{get, set, hurt};
+        });
+        return found;
+    }
+
+    @Nullable
+    private static java.lang.reflect.Method find(Class<?> type, String name, Class<?>... args) {
+        try {
+            return type.getMethod(name, args);
+        } catch (NoSuchMethodException | SecurityException e) {
+            return null;
+        }
+    }
+
+    /** A vehicle's health, or -1 when it cannot be read. */
+    public static float health(@Nullable Entity entity) {
+        if (entity instanceof net.minecraft.world.entity.LivingEntity living) {
+            return living.getHealth();
+        }
+        if (!isVehicle(entity)) {
+            return -1.0F;
+        }
+        java.lang.reflect.Method get = healthMethods(entity)[0];
+        if (get == null) {
+            return -1.0F;
+        }
+        try {
+            return ((Number) get.invoke(entity)).floatValue();
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return -1.0F;
+        }
+    }
+
+    /**
+     * Takes {@code amount} from a vehicle, through its own damage routine when it has one so the
+     * shooter gets the hit marker and the wreck counts as theirs, otherwise straight off its health.
+     *
+     * @return false when this vehicle cannot be damaged this way
+     */
+    public static boolean damage(@Nullable Entity vehicle, float amount, @Nullable Entity attacker) {
+        if (!isVehicle(vehicle) || amount <= 0.0F) {
+            return false;
+        }
+        java.lang.reflect.Method[] m = healthMethods(vehicle);
+        try {
+            if (m[2] != null) {
+                m[2].invoke(vehicle, amount, attacker, true);
+                return true;
+            }
+            if (m[0] != null && m[1] != null) {
+                float now = ((Number) m[0].invoke(vehicle)).floatValue();
+                m[1].invoke(vehicle, Math.max(0.0F, now - amount));
+                return true;
+            }
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            com.barbwra.mlum.MlumInventory.LOGGER.debug("could not damage {}: {}", vehicle, e.toString());
+        }
+        return false;
+    }
+
     /** The Superb Warfare vehicle this player is riding, or null. */
     @Nullable
     public static Entity ridden(@Nullable Player player) {

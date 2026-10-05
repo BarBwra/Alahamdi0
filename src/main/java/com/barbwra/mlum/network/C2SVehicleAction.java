@@ -51,7 +51,7 @@ public record C2SVehicleAction(Action action, String entityId) {
         return switch (result) {
             case NOT_OWNED -> "ما تملك هذي المركبة";
             case UNKNOWN_ENTITY -> "مود المركبة مو مثبت";
-            case COMBAT_LOCKED -> "ممنوع وأنت في قتال";
+            case COMBAT_LOCKED -> "ممنوع وأنت في قتال · ما تقدر تطلّع مركبة";
             case COOLDOWN -> "انتظر شوي قبل الاستدعاء";
             case NO_SPACE -> "ما فيه مكان كافي حولك";
             case WRONG_DIMENSION -> "ما تقدر تستدعي في هذا العالم";
@@ -70,8 +70,15 @@ public record C2SVehicleAction(Action action, String entityId) {
             case REFRESH -> VehicleGarage.sync(player);
 
             case STORE -> {
-                // returns a consumable to stock; a vehicle already destroyed returns nothing
-                if (VehicleGarage.storeActive(player)) {
+                // no putting it away mid-fight: not while you are in one, nor while it is being hit
+                long mine = com.barbwra.mlum.vehicle.CombatTracker.remainingTicks(player);
+                net.minecraft.world.entity.Entity active = VehicleGarage.findActive(player);
+                long its = active == null ? 0L : com.barbwra.mlum.vehicle.CombatTracker.vehicleRemaining(active);
+                if (mine > 0L) {
+                    com.barbwra.mlum.util.Feedback.bad(player, "ما تقدر تخزن وأنت في قتال · باقي {n}" + (mine / 20 + 1) + "{/n} ثانية");
+                } else if (its > 0L) {
+                    com.barbwra.mlum.util.Feedback.bad(player, "المركبة تضربت قريب · تقدر تخزنها بعد {n}" + (its / 20 + 1) + "{/n} ثانية");
+                } else if (VehicleGarage.storeActive(player)) {
                     com.barbwra.mlum.util.Feedback.ok(player, "تخزّنت المركبة");
                 } else {
                     com.barbwra.mlum.util.Feedback.bad(player, "فقدت المركبة");

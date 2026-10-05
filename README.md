@@ -1,6 +1,6 @@
 # MlumInventory — Minecraft 1.20.1 / Forge 47.4.10
 
-**v3.15.0** (network protocol 18) — see "What is new" below, and `HANDOFF.md` §5.4 and §11b
+**v3.16.0** (network protocol 19) — see "What is new" below, and `HANDOFF.md` §5.4 and §11b
 for developers.
 
 ---
@@ -13,11 +13,11 @@ for developers.
 | **Staff ranks** | the OP makes ranks in game (K → ranks), any name and colour, and ticks what each may do. Any command on the server, from any mod, can be given as `cmd.<command>` |
 | **Admin panel (K)** | players (teleport, bring, open inventory, spectate), vanish, restore a death, warn / mute / jail / kick / ban, tickets, money and item alerts, scheduled restart and scheduled commands |
 | **Commands** | `/mlum staff ...` (OP), `/mlum ticket <text>` (anyone) |
-| **Screens** | ESC menu, title screen, loading screens and crafting table redrawn in the bag's look, under the name Mlum. Client config `[screens]` |
 | **F5** | over-the-shoulder camera, X swaps the shoulder, a mark shows where a gun is really aimed |
 | **Sounds** | hover, click, open and close sounds in every menu |
 | **Dealership** | `/mlum dealer open <player>` (command block at the showroom). The vehicle turns on a lit stage only the buyer sees; price, level and limited/permanent shown plainly; paid from the bag balance. OPs add sections and vehicles in the same screen |
-| **Diplomacy** | faction tab → الدبلوماسية: alliances (level 3/7), wars of 48 h with 1% of the loser's bank per kill (level 4), bounties paid from the faction bank |
+| **Vehicles in a fight** | owner in PvP: no summon, no store; a vehicle that took damage cannot be stored for a while; summoned vehicles appear beside you, never on you |
+| **Bullets vs vehicles** | TACZ rifles, pistols, shotguns and snipers now damage Superb Warfare vehicles (`bulletVehicleDamage`) |
 | **Faction vault** | its own screen, big side buttons and A/D to turn pages, rent of 500 a day per page after the first from the faction bank (longer plans cheaper) |
 | **Ghillie** | a 5 s countdown above the wrist; any movement restarts it; hidden wearers are a faint ripple up close |
 | **Low health** | red edges, a heartbeat and muffled sound below 35% health |

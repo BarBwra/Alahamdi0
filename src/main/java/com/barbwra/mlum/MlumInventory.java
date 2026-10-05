@@ -43,6 +43,7 @@ public class MlumInventory {
         if (net.minecraftforge.fml.ModList.get().isLoaded("tacz")) {
             // only names TACZ's event classes when TACZ is there to load them
             com.barbwra.mlum.downed.DownedTacz.register();
+            com.barbwra.mlum.compat.TaczVehicleDamage.register();
         }
         modBus.addListener(this::commonSetup);
 

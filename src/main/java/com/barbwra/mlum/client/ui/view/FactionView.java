@@ -217,11 +217,7 @@ public final class FactionView {
             QuestsView.brighten(donate);
         }
         tiles.add(tile("الخزينة", Chrome.fmt(m.bank), "فلوس", subText("تبرعات الأعضاء", null), donate));
-        Node diplomacy = Css.btn("الدبلوماسية", Css.BTN_GHOST, true, false).hit("diplomacy");
-        if ("diplomacy".equals(m.hover)) {
-            QuestsView.brighten(diplomacy);
-        }
-        tiles.add(tile("الأعضاء", String.valueOf(m.members.size()), "أعضاء", subText("متصلين الحين ", String.valueOf(online)), diplomacy));
+        tiles.add(tile("الأعضاء", String.valueOf(m.members.size()), "أعضاء", subText("متصلين الحين ", String.valueOf(online)), null));
         Node vault = inline(K(400), 11.5F, LH, Tok.FAINT);
         vault.span(sp("موزعة على ", K(400), 11.5F, LH, Tok.FAINT));
         vault.span(nsp(String.valueOf(m.pages), 14, LH, Tok.MUTED));

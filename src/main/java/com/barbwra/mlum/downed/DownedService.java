@@ -551,22 +551,14 @@ public final class DownedService {
         S2CDistress call = new S2CDistress(player.getGameProfile().getName(), player.getX(), player.getY(), player.getZ(),
                 MlumConfig.distressSeconds());
         int told = 0;
-        // the faction, and every faction allied with it
-        List<UUID> listeners = new ArrayList<>(faction.members().keySet());
-        for (UUID ally : com.barbwra.mlum.faction.Diplomacy.alliesOf(server, faction.id())) {
-            Faction a = FactionData.get(server).byId(ally);
-            if (a != null) {
-                listeners.addAll(a.members().keySet());
-            }
-        }
-        for (UUID member : listeners) {
+        for (UUID member : faction.members().keySet()) {
             ServerPlayer other = server.getPlayerList().getPlayer(member);
             if (other != null && other != player && other.connection != null && other.level() == player.level()) {
                 ModNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> other), call);
                 told++;
             }
         }
-        Feedback.ok(player, told > 0 ? "وصل نداءك لـ " + told + " من منظمتك وحلفائها" : "ما أحد من منظمتك قريب يسمعك");
+        Feedback.ok(player, told > 0 ? "وصل نداءك لـ " + told + " من منظمتك" : "ما أحد من منظمتك قريب يسمعك");
     }
 
     /* ================================================================== helpers */

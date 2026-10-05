@@ -84,7 +84,7 @@ public final class GhillieClient {
         float alpha;
         if (p == me) {
             // yourself in third person: always the full shimmer, so you can see what others see
-            alpha = 0.07F;
+            alpha = 0.16F;
         } else {
             Vec3 eye = me.getEyePosition(pt);
             Vec3 centre = p.getPosition(pt).add(0.0D, p.getBbHeight() * 0.5D, 0.0D);
@@ -96,7 +96,7 @@ public final class GhillieClient {
             // a glance gets almost nothing; only a stare straight at the spot shows the ripple
             float focus = Mth.clamp((float) ((dot - 0.95D) / 0.045D), 0.0F, 1.0F);
             float near = 1.0F - (float) (distance / SHIMMER_RANGE);
-            alpha = near * near * (0.08F + 0.92F * focus) * 0.07F;
+            alpha = near * near * (0.1F + 0.9F * focus) * 0.15F;
         }
         if (alpha < 0.008F) {
             return;
@@ -124,8 +124,12 @@ public final class GhillieClient {
             float time = (p.tickCount + pt) / 20.0F;
             VertexConsumer buffer = event.getMultiBufferSource()
                     .getBuffer(RenderType.entityTranslucent(renderer.getTextureLocation(p)));
-            model.renderToBuffer(pose, new Ripple(buffer, time), event.getPackedLight(), OverlayTexture.NO_OVERLAY,
-                    0.62F, 0.66F, 0.6F, alpha);
+            // two passes half a wave apart, pale like bent light: the edges waver against each other
+            float pulse = 0.85F + 0.15F * (float) Math.sin(time * 3.0D);
+            model.renderToBuffer(pose, new Ripple(buffer, time, 0.0D), 0xF000F0, OverlayTexture.NO_OVERLAY,
+                    0.86F, 0.92F, 0.96F, alpha * pulse);
+            model.renderToBuffer(pose, new Ripple(buffer, time, Math.PI), 0xF000F0, OverlayTexture.NO_OVERLAY,
+                    0.86F, 0.92F, 0.96F, alpha * 0.6F * pulse);
         } finally {
             pose.popPose();
         }
@@ -135,18 +139,20 @@ public final class GhillieClient {
     private static final class Ripple implements VertexConsumer {
         private final VertexConsumer inner;
         private final float time;
+        private final double phase;
 
-        Ripple(VertexConsumer inner, float time) {
+        Ripple(VertexConsumer inner, float time, double phase) {
             this.inner = inner;
             this.time = time;
+            this.phase = phase;
         }
 
         private double dx(double y) {
-            return Math.sin(y * 7.0D + time * 5.0D) * 0.035D;
+            return Math.sin(y * 7.0D + time * 5.0D + phase) * 0.05D;
         }
 
         private double dz(double y) {
-            return Math.cos(y * 6.0D + time * 4.0D) * 0.03D;
+            return Math.cos(y * 6.0D + time * 4.0D + phase) * 0.045D;
         }
 
         @Override

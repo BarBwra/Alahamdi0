@@ -72,6 +72,7 @@ public final class MlumConfig {
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> summonDimensions;
         public final ForgeConfigSpec.ConfigValue<List<? extends String>> summonBlacklist;
         public final ForgeConfigSpec.IntValue combatLockSeconds;
+        public final ForgeConfigSpec.DoubleValue bulletVehicleDamage;
         public final ForgeConfigSpec.IntValue summonCooldownSeconds;
         public final ForgeConfigSpec.BooleanValue ownerOnlyDriver;
         public final ForgeConfigSpec.IntValue maxOwnedVehicles;
@@ -357,6 +358,11 @@ public final class MlumConfig {
                     .comment("How long after PvP damage a player cannot summon or despawn a vehicle.",
                             "This is the 'cannot activate in pvp' lock. 0 disables it.")
                     .defineInRange("combatLockSeconds", 60, 0, 3600);
+            bulletVehicleDamage = b
+                    .comment("TACZ bullets against Superb Warfare vehicles: each hit takes the bullet's damage",
+                            "times this from the vehicle's health. Superb Warfare on its own ignores them, so",
+                            "only rockets and explosions hurt a vehicle. 0 keeps it that way.")
+                    .defineInRange("bulletVehicleDamage", 1.0D, 0.0D, 10.0D);
             summonCooldownSeconds = b
                     .comment("Minimum gap between two summons.")
                     .defineInRange("summonCooldownSeconds", 30, 0, 3600);
@@ -623,12 +629,6 @@ public final class MlumConfig {
         public final ForgeConfigSpec.BooleanValue fieldHud;
         public final ForgeConfigSpec.BooleanValue lootMarkers;
         public final ForgeConfigSpec.IntValue lootMarkerRange;
-        public final ForgeConfigSpec.BooleanValue themedPause;
-        public final ForgeConfigSpec.BooleanValue themedTitle;
-        public final ForgeConfigSpec.BooleanValue themedLoading;
-        public final ForgeConfigSpec.BooleanValue themedCrafting;
-        public final ForgeConfigSpec.ConfigValue<String> serverAddress;
-        public final ForgeConfigSpec.ConfigValue<List<? extends String>> tips;
         public final ForgeConfigSpec.BooleanValue shoulderCamera;
         public final ForgeConfigSpec.DoubleValue shoulderOffset;
         public final ForgeConfigSpec.DoubleValue shoulderDistance;
@@ -757,29 +757,11 @@ public final class MlumConfig {
                     .defineInRange("lootMarkerRange", 10, 2, 32);
             b.pop();
 
-            b.comment("The game's own screens, redrawn in the bag's look.").push("screens");
-            themedPause = b.comment("The ESC menu.").define("pause", true);
-            themedTitle = b.comment("The title screen you see when the game starts.").define("title", true);
-            themedLoading = b.comment("Connecting, loading terrain and saving.").define("loading", true);
-            themedCrafting = b.comment("The crafting table, with the list of what you can make beside it.").define("crafting", true);
-            serverAddress = b
-                    .comment("The server the title screen's big button joins directly, e.g. play.example.com",
-                            "or 1.2.3.4:25565. Blank opens the server list instead.")
-                    .define("serverAddress", "");
-            tips = b
-                    .comment("One of these shows on the loading screen each time.")
-                    .defineList("tips", List.of(
-                            "اضغط Shift وأنت تفتش عشان تفتش أسرع، بس ممكن تطيّح شي",
-                            "إذا انصبت اضغط E عشان تنادي منظمتك",
-                            "الغيلي يخفيك إذا نزلت بـ Shift وثبت مكانك",
-                            "الفلوس اللي في حسابك ما تنسرق",
-                            "اكتب /mlum ticket إذا عندك مشكلة وتوصل للإدارة"), entry -> entry instanceof String);
-            b.pop();
 
             b.comment("How the world feels to play in. All of it is client side and can be switched off.").push("feel");
             shoulderCamera = b
                     .comment("F5 puts the camera over your shoulder instead of straight behind your head.",
-                            "Its key (V by default) swaps which shoulder.")
+                            "Its key (X by default) swaps which shoulder.")
                     .define("shoulderCamera", true);
             shoulderOffset = b
                     .comment("How far to the side of your head the shoulder camera sits, in blocks.")
@@ -1409,6 +1391,10 @@ public final class MlumConfig {
         return out;
     }
 
+    public static double bulletVehicleDamage() {
+        return serverReady() ? SERVER.bulletVehicleDamage.get() : 1.0D;
+    }
+
     public static int combatLockSeconds() {
         return serverReady() ? SERVER.combatLockSeconds.get() : 15;
     }
@@ -1469,22 +1455,6 @@ public final class MlumConfig {
         return !clientReady() || CLIENT.lootMarkers.get();
     }
 
-    public static boolean themedPause() {
-        return !clientReady() || CLIENT.themedPause.get();
-    }
-
-    public static boolean themedTitle() {
-        return !clientReady() || CLIENT.themedTitle.get();
-    }
-
-    public static boolean themedLoading() {
-        return !clientReady() || CLIENT.themedLoading.get();
-    }
-
-    public static boolean themedCrafting() {
-        return !clientReady() || CLIENT.themedCrafting.get();
-    }
-
     public static boolean shoulderCamera() {
         return clientReady() && CLIENT.shoulderCamera.get();
     }
@@ -1507,18 +1477,6 @@ public final class MlumConfig {
 
     public static boolean healthMuffle() {
         return clientReady() && CLIENT.healthMuffle.get();
-    }
-
-    public static String serverName() {
-        return "Mlum";
-    }
-
-    public static String serverAddress() {
-        return clientReady() ? CLIENT.serverAddress.get() : "";
-    }
-
-    public static List<? extends String> tips() {
-        return clientReady() ? CLIENT.tips.get() : CLIENT.tips.getDefault();
     }
 
     public static int lootMarkerRange() {

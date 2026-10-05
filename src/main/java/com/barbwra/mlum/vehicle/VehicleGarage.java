@@ -325,14 +325,15 @@ public final class VehicleGarage {
             return Result.UNKNOWN_ENTITY;
         }
 
-        // everything that can fail happens before the old vehicle is touched
-        Vec3 spot = findSpawnSpot(player, level, type);
-        if (spot == null) {
-            return Result.NO_SPACE;
-        }
+        // everything that can fail happens before the old vehicle is touched; the entity is made
+        // first (not yet in the world) so the spot is found from its real size, not the type's
         Entity entity = type.create(level);
         if (entity == null) {
             return Result.FAILED;
+        }
+        Vec3 spot = findSpawnSpot(player, level, entity);
+        if (spot == null) {
+            return Result.NO_SPACE;
         }
         entity.moveTo(spot.x, spot.y, spot.z, player.getYRot(), 0.0F);
 
@@ -406,26 +407,41 @@ public final class VehicleGarage {
      * bounding box, so a car never spawns inside a wall or on the player's head.
      */
     @Nullable
-    private static Vec3 findSpawnSpot(ServerPlayer player, ServerLevel level, EntityType<?> type) {
-        float width = Math.max(1.0F, type.getWidth());
-        float height = Math.max(1.0F, type.getHeight());
-        Vec3 forward = Vec3.directionFromRotation(0.0F, player.getYRot());
-
-        // starts three blocks out: a tank appearing on top of you is how you get launched into the
-        // sky or suffocated by your own vehicle
-        for (double distance = 3.0D; distance <= 9.0D; distance += 1.0D) {
-            Vec3 target = player.position().add(forward.scale(distance));
-            BlockPos base = BlockPos.containing(target);
-
-            for (int dy = 2; dy >= -3; dy--) {
-                double y = base.getY() + dy;
-                AABB box = new AABB(
-                        target.x - width / 2.0D, y, target.z - width / 2.0D,
-                        target.x + width / 2.0D, y + height, target.z + width / 2.0D);
-
-                boolean supported = !level.noCollision(box.move(0.0D, -0.2D, 0.0D));
-                if (level.noCollision(box) && supported) {
-                    return new Vec3(target.x, y, target.z);
+    /**
+     * Somewhere beside the player for the whole vehicle, never on them.
+     *
+     * <p>The footprint is the entity's own box - a tank's is several blocks wide, and a model often
+     * reaches past its box - so the centre is kept at least half the vehicle's diagonal plus a
+     * two-block margin from the player, and the box (with a block of headroom) must be clear of
+     * blocks, of the player, and of anyone else standing there. Right and left of where the player
+     * faces are tried first, then ahead, the diagonals and behind, moving out a block at a time.</p>
+     */
+    private static Vec3 findSpawnSpot(ServerPlayer player, ServerLevel level, Entity entity) {
+        double width = Math.max(1.0D, entity.getBbWidth());
+        double height = Math.max(1.0D, entity.getBbHeight());
+        double half = width / 2.0D;
+        double reach = half * Math.sqrt(2.0D) + player.getBbWidth() / 2.0D + 2.0D;
+        AABB keepOut = player.getBoundingBox().inflate(1.5D, 2.0D, 1.5D);
+        float yaw = player.getYRot();
+        // degrees off the facing: right, left, ahead, the diagonals ahead, behind them, behind
+        float[] turns = {90.0F, -90.0F, 0.0F, 45.0F, -45.0F, 135.0F, -135.0F, 180.0F};
+        for (double distance = reach; distance <= reach + 8.0D; distance += 1.0D) {
+            for (float turn : turns) {
+                Vec3 dir = Vec3.directionFromRotation(0.0F, yaw + turn);
+                Vec3 target = player.position().add(dir.scale(distance));
+                BlockPos base = BlockPos.containing(target);
+                for (int dy = 2; dy >= -3; dy--) {
+                    double y = base.getY() + dy;
+                    AABB box = new AABB(target.x - half, y, target.z - half, target.x + half, y + height, target.z + half);
+                    if (box.intersects(keepOut)) {
+                        continue;
+                    }
+                    boolean supported = !level.noCollision(box.move(0.0D, -0.2D, 0.0D));
+                    boolean clear = level.noCollision(box.expandTowards(0.0D, 1.0D, 0.0D));
+                    if (supported && clear && level.getEntities(entity, box.inflate(0.5D),
+                            e -> e instanceof net.minecraft.world.entity.LivingEntity).isEmpty()) {
+                        return new Vec3(target.x, y, target.z);
+                    }
                 }
             }
         }

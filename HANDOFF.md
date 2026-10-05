@@ -4,7 +4,7 @@ Everything needed to work on this mod without having seen it before. **Read it a
 anything**; several sections describe traps that have already cost real debugging time, and a few
 describe bugs that were shipped and then found the hard way.
 
-Last updated at **mlum 3.15.0**, network protocol **18**.
+Last updated at **mlum 3.16.0**, network protocol **19**.
 
 ---
 
@@ -566,12 +566,10 @@ firearm card only draws when the field HUD is off. `HudPen` is a thin wrapper ov
   script** for it to come back), scheduled console commands (`Schedule`, `mlum_schedule`).
 - Commands: `/mlum staff ranks|rank create/delete/color/add/remove|assign|unassign|check`.
 
-### 3.11.0 — themed screens (`client/screens/`)
-`ScreenSwap` replaces the ESC menu, the title screen and the crafting table screen in
-`ScreenEvent.Opening`, and paints over connecting / loading / saving screens in `Render.Pre`.
-The server's name is fixed as **Mlum** (`MlumConfig.serverName()`). Client config `[screens]`: each
-screen on/off, `serverAddress` (title's big button joins it directly), `tips`. The news panel and
-the side panel were built and then removed at the user's request - do not bring them back.
+### 3.11.0 — themed screens (removed in 3.16.0)
+The redrawn title, ESC, loading and crafting screens (`ScreenSwap` and the `Mlife*Screen`
+classes) and their `[screens]` config were deleted at the user's request, as were the news and
+side panels before them - do not bring them back. `ScreenKit` stays: the showroom uses it.
 
 ### 3.12.0 — feel (`client/feel/`, client config `[feel]`)
 - **Shoulder camera** (`ShoulderCamera`): in F5-back the camera is moved to a shoulder inside
@@ -609,20 +607,22 @@ page turn - the menu reopening within 1.5 s of closing - only spins the dial (`u
   (`EntityPreview.showroom`), and other clients skip rendering anyone browsing (`browsing` ids).
   Packets `S2CDealer` / `C2SDealer`, protocol 16.
 
-### 3.15.0 — faction diplomacy (`faction/Diplomacy`, `DiplomacyData`, `client/diplomacy/`)
-Opened from the faction tab's "الدبلوماسية" button or `/mlum faction diplomacy`; data over
-`S2CDiplomacy` / `C2SDiplomacy` (protocol 18), saved in `mlum_diplomacy`.
-- **Alliances**: level 3 for one, level 7 for two. Leader requests (kept 10 min, in memory),
-  the other leader accepts. Allies cannot damage each other (`LivingAttackEvent` HIGH) and get each
-  other's distress calls (`DownedService.distress`). Breaking puts both on a 24 h cooldown.
-- **Wars**: leader, level 4, 48 h, one declared war at a time, 7-day cooldown per pair, server-wide
-  announcement and horn. Each kill moves 1% of the victim faction's bank to the killer's, capped at
-  10% of the bank it had when the war began.
-- **Bounties**: leader/deputy, from the bank in advance, 500 to level × 5,000, one per faction,
-  7 days then refunded. The killer is paid into their wallet unless they are in the target's
-  faction or allied with it.
-- Kills are credited to the last player to hurt the victim within 7 minutes (`LAST_HIT_BY`), so a
-  bleed-out after a downing counts.
+### 3.16.0 — vehicles in a fight, bullets on vehicles, diplomacy and screens removed
+- Faction diplomacy (alliances, wars, bounties, built in 3.15.0) was taken out entirely at the
+  user's request; protocol 19. Do not bring it back.
+- Vehicle PvP log: the owner under the PvP tag (`CombatTracker`) can neither summon nor store;
+  the vehicle itself is tagged for `combatLockSeconds` whenever its health drops
+  (`VehicleCombat` polls every summoned vehicle twice a second, so every damage source counts)
+  and cannot be stored while tagged (`C2SVehicleAction` STORE).
+- Summon spot (`VehicleGarage.findSpawnSpot`): the entity is created first and its own box used;
+  the centre stays half the diagonal + 2 blocks from the player, the box (plus a block of
+  headroom) must be clear of blocks, of the player's box inflated by 1.5, and of any living
+  entity; right, left, ahead, diagonals, behind, moving out a block at a time.
+- TACZ bullets on SBW vehicles (`compat/TaczVehicleDamage`, TACZ only): `EntityHurtByGunEvent.Pre`
+  against a vehicle is cancelled and `amount × bulletVehicleDamage` (server config, default 1.0)
+  is taken through the vehicle's `onHurt(float, Entity, boolean)`, else `setHealth`, by reflection
+  (`SbwCompat.damage`). Untested against SBW - if neither method exists the hit falls back to TACZ.
+- Ghillie shimmer: two pale passes half a wave apart, full-bright; self 0.16, others up to 0.15.
 
 ### 3.14.1
 - Ghillie counts TACZ's crawl (forced swimming pose on land) as low, like a crouch
