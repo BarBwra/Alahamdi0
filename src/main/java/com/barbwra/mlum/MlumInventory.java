@@ -44,6 +44,7 @@ public class MlumInventory {
             // only names TACZ's event classes when TACZ is there to load them
             com.barbwra.mlum.downed.DownedTacz.register();
             com.barbwra.mlum.compat.TaczVehicleDamage.register();
+            com.barbwra.mlum.compat.TaczDriverRules.register();
         }
         modBus.addListener(this::commonSetup);
 

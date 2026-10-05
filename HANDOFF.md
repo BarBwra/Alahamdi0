@@ -607,6 +607,13 @@ page turn - the menu reopening within 1.5 s of closing - only spins the dial (`u
   (`EntityPreview.showroom`), and other clients skip rendering anyone browsing (`browsing` ids).
   Packets `S2CDealer` / `C2SDealer`, protocol 16.
 
+### 3.16.2 — the driver cannot fight
+Whoever drives an SBW vehicle (`SbwCompat.isDriving`) cannot hit anything (`AttackEntityEvent`),
+use bows/crossbows/tridents/throwables (`RightClickItem`), or shoot/melee with TACZ
+(`compat/TaczDriverRules`, both sides). `DriverRules.onLivingAttack` cancels any remaining damage a
+driver deals by hand or with a non-SBW projectile; SBW's own projectiles (the vehicle's weapons)
+still hit. Other seats are unaffected.
+
 ### 3.16.0 — vehicles in a fight, bullets on vehicles, diplomacy and screens removed
 - Faction diplomacy (alliances, wars, bounties, built in 3.15.0) was taken out entirely at the
   user's request; protocol 19. Do not bring it back.
