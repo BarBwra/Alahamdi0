@@ -362,7 +362,7 @@ public final class MlumConfig {
                     .comment("TACZ bullets against Superb Warfare vehicles: each hit takes the bullet's damage",
                             "times this from the vehicle's health. Superb Warfare on its own ignores them, so",
                             "only rockets and explosions hurt a vehicle. 0 keeps it that way.")
-                    .defineInRange("bulletVehicleDamage", 1.0D, 0.0D, 10.0D);
+                    .defineInRange("bulletVehicleDamage", 0.2D, 0.0D, 10.0D);
             summonCooldownSeconds = b
                     .comment("Minimum gap between two summons.")
                     .defineInRange("summonCooldownSeconds", 30, 0, 3600);
@@ -1392,7 +1392,7 @@ public final class MlumConfig {
     }
 
     public static double bulletVehicleDamage() {
-        return serverReady() ? SERVER.bulletVehicleDamage.get() : 1.0D;
+        return serverReady() ? SERVER.bulletVehicleDamage.get() : 0.2D;
     }
 
     public static int combatLockSeconds() {

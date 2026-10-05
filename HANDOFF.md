@@ -619,8 +619,8 @@ page turn - the menu reopening within 1.5 s of closing - only spins the dial (`u
   headroom) must be clear of blocks, of the player's box inflated by 1.5, and of any living
   entity; right, left, ahead, diagonals, behind, moving out a block at a time.
 - TACZ bullets on SBW vehicles (`compat/TaczVehicleDamage`, TACZ only): `EntityHurtByGunEvent.Pre`
-  against a vehicle is cancelled and `amount × bulletVehicleDamage` (server config, default 1.0)
-  is taken through the vehicle's `onHurt(float, Entity, boolean)`, else `setHealth`, by reflection
+  against a vehicle is cancelled and `amount × bulletVehicleDamage` (server config)
+  is taken (default 0.2 since 3.16.1, migrated by `ConfigMigration` v2) through the vehicle's `onHurt(float, Entity, boolean)`, else `setHealth`, by reflection
   (`SbwCompat.damage`). Untested against SBW - if neither method exists the hit falls back to TACZ.
 - Ghillie shimmer: two pale passes half a wave apart, full-bright; self 0.16, others up to 0.15.
 

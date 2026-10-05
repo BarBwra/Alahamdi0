@@ -29,7 +29,7 @@ public final class ConfigMigration {
     }
 
     /** The version a fully up to date file carries. */
-    private static final int CURRENT = 1;
+    private static final int CURRENT = 2;
 
     @SubscribeEvent
     public static void onLoad(ModConfigEvent.Loading event) {
@@ -59,6 +59,10 @@ public final class ConfigMigration {
             replace(s.lootNoiseChance, 0.25D, 0.5D);
             replace(s.downedSeconds, 180, 360);
             s.skills.set(skills(s.skills.get()));
+        }
+        if (from < 2) {
+            // 3.16.1: bullets on vehicles were five times too strong
+            replace(s.bulletVehicleDamage, 1.0D, 0.2D);
         }
         s.configVersion.set(CURRENT);
         MlumConfig.SERVER_SPEC.save();
